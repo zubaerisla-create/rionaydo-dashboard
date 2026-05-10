@@ -1,3 +1,5 @@
+
+"use client";
 import Login from '@/components/DashboardComponent/Loign/Loign'
 import React from 'react'
 

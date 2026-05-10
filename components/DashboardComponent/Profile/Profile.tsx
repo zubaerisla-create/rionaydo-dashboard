@@ -1,7 +1,6 @@
-// app/profile/page.tsx
-"use client"
+"use client";
 
-import { useState } from 'react'
+import { useState } from 'react';
 import {
   User,
   Mail,
@@ -10,23 +9,40 @@ import {
   CalendarDays,
   Clock,
   Lock,
-  CheckCircle2,
-} from 'lucide-react'
+  Loader2,
+  AlertCircle,
+} from 'lucide-react';
+import { useGetMeQuery } from '@/lib/adminApi';
+
+function fmtDate(date: string) {
+  if (!date) return 'N/A';
+  return new Date(date).toLocaleDateString("en-GB", {
+    month: "long",
+    year: "numeric",
+  });
+}
 
 export default function ProfileSettings() {
-  const [currentPw, setCurrentPw] = useState('')
-  const [newPw, setNewPw] = useState('')
-  const [confirmPw, setConfirmPw] = useState('')
+  const { data: profile, isLoading, isError } = useGetMeQuery();
+  const [currentPw, setCurrentPw] = useState('');
+  const [newPw, setNewPw] = useState('');
+  const [confirmPw, setConfirmPw] = useState('');
 
-  const profile = {
-    initials: 'S',
-    name: 'Super Admin',
-    email: 'admin@swisscar.ch',
-    role: 'super admin',
-    created: '2025-01',
-    lastLogin: '3/5/2026',
-    actionsToday: 12,
-    actionsThisWeek: 47,
+  if (isLoading) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center">
+        <Loader2 className="h-10 w-10 text-emerald-500 animate-spin" />
+      </div>
+    );
+  }
+
+  if (isError || !profile) {
+    return (
+      <div className="min-h-[60vh] flex flex-col items-center justify-center gap-4 text-red-400">
+        <AlertCircle size={40} />
+        <p>Failed to load profile information.</p>
+      </div>
+    );
   }
 
   return (
@@ -35,42 +51,42 @@ export default function ProfileSettings() {
 
         {/* ─── Profile Information ──────────────────────────────────────── */}
         <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
-          <h1 className="text-xl font-bold mb-1">Profile Information</h1>
+          <h1 className="text-xl font-bold mb-1 text-white">Profile Information</h1>
           <p className="text-gray-400 text-sm mb-7">
             Your administrative account details
           </p>
 
           <div className="flex items-start gap-5 mb-8">
-            <div className="w-16 h-16 rounded-full bg-emerald-600 flex items-center justify-center text-2xl font-bold text-white shrink-0">
-              {profile.initials}
+            <div className="w-16 h-16 rounded-full bg-emerald-600 flex items-center justify-center text-2xl font-bold text-white shadow-lg shrink-0">
+              {profile.email.charAt(0).toUpperCase()}
             </div>
 
             <div className="pt-1">
               <div className="flex items-center gap-2.5 mb-1.5">
-                <h2 className="text-2xl font-semibold">{profile.name}</h2>
-                <span className="inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium uppercase tracking-wide bg-amber-950/90 text-amber-300 border border-amber-800/60">
-                  {profile.role}
+                <h2 className="text-2xl font-semibold text-white">{profile.full_name || profile.email.split('@')[0]}</h2>
+                <span className="inline-flex px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-widest bg-amber-950/90 text-amber-300 border border-amber-800/60 shadow-sm">
+                  {profile.role.replace('_', ' ')}
                 </span>
               </div>
-              <div className="text-gray-300 flex items-center gap-2">
-                <Mail size={15} className="text-gray-500" />
+              <div className="text-gray-400 flex items-center gap-2 text-sm">
+                <Mail size={14} className="text-gray-500" />
                 {profile.email}
               </div>
             </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
-            <Field label="Full Name" icon={User} value={profile.name} />
+            <Field label="Full Name" icon={User} value={profile.full_name || "Not set"} />
             <Field label="Email Address" icon={Mail} value={profile.email} />
-            <Field label="Role" icon={Shield} value={profile.role} capitalize />
-            <Field label="Account Created" icon={CalendarDays} value={profile.created} />
+            <Field label="Role" icon={Shield} value={profile.role.replace('_', ' ')} capitalize />
+            <Field label="Account Created" icon={CalendarDays} value={fmtDate(profile.created_at)} />
           </div>
         </div>
 
         {/* ─── Security Settings ────────────────────────────────────────── */}
-        <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 space-y-7">
+        <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 space-y-7 shadow-sm">
           <div>
-            <h2 className="text-lg font-semibold flex items-center gap-2 mb-1">
+            <h2 className="text-lg font-semibold flex items-center gap-2 mb-1 text-white">
               <KeyRound className="text-emerald-400" size={19} />
               Security Settings
             </h2>
@@ -79,9 +95,8 @@ export default function ProfileSettings() {
             </p>
           </div>
 
-          {/* Change Password */}
           <div className="space-y-5">
-            <h3 className="text-base font-medium flex items-center gap-2">
+            <h3 className="text-base font-medium flex items-center gap-2 text-gray-200">
               <Lock size={16} />
               Change Password
             </h3>
@@ -92,50 +107,30 @@ export default function ProfileSettings() {
               <Input label="Confirm New Password" type="password" value={confirmPw} onChange={setConfirmPw} />
             </div>
 
-            <div className="flex justify-end">
-              <button className="px-7 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 rounded-lg font-medium transition">
+            <div className="flex justify-end pt-2">
+              <button className="px-7 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 rounded-lg font-bold text-white transition-all shadow-md active:scale-95">
                 Update Password
               </button>
             </div>
           </div>
 
-          {/* 2FA (placeholder) */}
           <div className="pt-5 border-t border-gray-800">
-            <h3 className="text-base font-medium flex items-center gap-2 mb-3">
+            <h3 className="text-base font-medium flex items-center gap-2 mb-3 text-gray-200">
               <Shield size={16} />
               Two-Factor Authentication
             </h3>
             <p className="text-sm text-gray-400 mb-4">
               Add an extra layer of security to your account
             </p>
-            <button className="px-5 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg text-sm transition">
+            <button className="px-5 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg text-sm font-medium transition shadow-sm">
               Enable 2FA
             </button>
           </div>
         </div>
-
-        {/* ─── Activity Summary ─────────────────────────────────────────── */}
-        <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
-          <h2 className="text-lg font-semibold flex items-center gap-2 mb-6">
-            <Clock className="text-emerald-400" size={19} />
-            Activity Summary
-          </h2>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-            <SummaryCard label="Actions Today" value={profile.actionsToday} />
-            <SummaryCard label="Actions This Week" value={profile.actionsThisWeek} />
-            <SummaryCard label="Last Login" value={profile.lastLogin} smaller />
-          </div>
-        </div>
-
       </div>
     </div>
-  )
+  );
 }
-
-// ──────────────────────────────────────────────
-// Reusable small components
-// ──────────────────────────────────────────────
 
 function Field({
   label,
@@ -143,22 +138,22 @@ function Field({
   value,
   capitalize = false,
 }: {
-  label: string
-  icon: any
-  value: string
-  capitalize?: boolean
+  label: string;
+  icon: any;
+  value: string;
+  capitalize?: boolean;
 }) {
   return (
     <div>
-      <label className="block text-sm text-gray-400 mb-1.5 flex items-center gap-1.5">
-        <Icon size={15} className="text-gray-500" />
+      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+        <Icon size={13} className="text-gray-500" />
         {label}
       </label>
-      <div className={`bg-gray-800/70 border border-gray-700 rounded-lg px-4 py-2.5 text-sm ${capitalize ? 'capitalize' : ''}`}>
+      <div className={`bg-gray-800/40 border border-gray-800 rounded-lg px-4 py-3 text-sm text-gray-200 ${capitalize ? 'capitalize' : ''}`}>
         {value}
       </div>
     </div>
-  )
+  );
 }
 
 function Input({
@@ -167,43 +162,24 @@ function Input({
   value,
   onChange,
 }: {
-  label: string
-  type?: string
-  value: string
-  onChange: (v: string) => void
+  label: string;
+  type?: string;
+  value: string;
+  onChange: (v: string) => void;
 }) {
   return (
     <div>
-      <label className="block text-sm text-gray-400 mb-1.5">{label}</label>
+      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">{label}</label>
       <input
         type={type}
         value={value}
         onChange={e => onChange(e.target.value)}
         className="
-          w-full bg-gray-800 border border-gray-700 rounded-lg
-          px-4 py-2.5 text-sm focus:outline-none focus:border-emerald-600/60
-          transition-colors
+          w-full bg-gray-900 border border-gray-800 rounded-lg
+          px-4 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-500/50
+          transition-all
         "
       />
     </div>
-  )
-}
-
-function SummaryCard({
-  label,
-  value,
-  smaller = false,
-}: {
-  label: string
-  value: string | number
-  smaller?: boolean
-}) {
-  return (
-    <div className="bg-gray-950 border border-gray-800 rounded-lg p-5 text-center">
-      <div className={`${smaller ? 'text-xl' : 'text-3xl'} font-bold mb-1.5 tracking-tight`}>
-        {value}
-      </div>
-      <div className="text-sm text-gray-400">{label}</div>
-    </div>
-  )
-}
+  );
+}

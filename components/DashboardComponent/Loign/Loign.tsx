@@ -1,9 +1,39 @@
+"use client";
 // app/login/page.tsx
-import Link from 'next/link'
-import logo from "../../../public/logo.png"
-import Image from 'next/image'
+
+import Link from 'next/link';
+import logo from "../../../public/logo.png";
+import Image from 'next/image';
+import { useState } from 'react';
+import { useLoginMutation } from '../../../lib/authApi';
+import { useDispatch } from 'react-redux';
+import { setCredentials } from '../../../lib/authSlice';
+import { useRouter } from 'next/navigation';
 
 export default function AdminLoginPage() {
+  const [form, setForm] = useState({ email: '', password: '' });
+  const [login, { isLoading, error }] = useLoginMutation();
+  const dispatch = useDispatch();
+  const router = useRouter();
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setForm({ ...form, [e.target.name]: e.target.value });
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const res = await login(form).unwrap();
+      dispatch(setCredentials({
+        access: res.access,
+        refresh: res.refresh,
+        user: { email: res.email, role: res.role, user_id: res.user_id },
+      }));
+      router.push('/dashboard');
+    } catch (err) {
+      console.error('Login failed:', err);
+    }
+  };
   return (
     <div className="min-h-screen bg-gray-950 flex flex-col items-center justify-center p-6">
       <div className="w-full max-w-md space-y-10">
@@ -29,7 +59,7 @@ export default function AdminLoginPage() {
 
         {/* Login Card */}
         <div className="bg-gray-900/80 border border-gray-800 rounded-xl shadow-2xl shadow-black/40 backdrop-blur-sm p-8">
-          <form className="space-y-6">
+          <form className="space-y-6" onSubmit={handleSubmit}>
             {/* Email */}
             <div className="space-y-2">
               <label htmlFor="email" className="block text-sm font-medium text-gray-300">
@@ -41,7 +71,9 @@ export default function AdminLoginPage() {
                 type="email"
                 autoComplete="email"
                 required
-                defaultValue="admin@swisscar.ch"
+                value={form.email}
+                onChange={handleChange}
+                placeholder="Enter your email"
                 className="
                   w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3
                   text-gray-100 placeholder-gray-500
@@ -62,6 +94,8 @@ export default function AdminLoginPage() {
                 type="password"
                 autoComplete="current-password"
                 required
+                value={form.password}
+                onChange={handleChange}
                 placeholder="Enter your password"
                 className="
                   w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3
@@ -91,8 +125,6 @@ export default function AdminLoginPage() {
             </div>
 
             {/* Submit button */}
-       <Link href="/dashboard" >
-       
             <button
               type="submit"
               className="
@@ -101,10 +133,11 @@ export default function AdminLoginPage() {
                 transition-all duration-150 shadow-lg shadow-emerald-950/40
                 disabled:opacity-60 disabled:cursor-not-allowed
               "
+              disabled={isLoading}
             >
-              Sign In
+              {isLoading ? 'Signing In...' : 'Sign In'}
             </button>
-       </Link>
+            {error && <div className="text-red-500 text-sm mt-2">Login failed. Please check your credentials.</div>}
           </form>
         </div>
 

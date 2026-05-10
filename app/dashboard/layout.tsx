@@ -10,7 +10,7 @@ import {
 
 const sidebarItems = [
   { name: 'Overview', href: '/dashboard', icon: Home },
-  { name: 'Dealers', href: '/dashboard/dealers', icon: Users },
+  { name: 'Users', href: '/dashboard/dealers', icon: Users },
   { name: 'Auctions', href: '/dashboard/auctions', icon: Gavel },
   { name: 'Bidding Monitor', href: '/dashboard/bidding-monitor', icon: TrendingUp },
   { name: 'Subscriptions', href: '/dashboard/subscriptions', icon: FileText },

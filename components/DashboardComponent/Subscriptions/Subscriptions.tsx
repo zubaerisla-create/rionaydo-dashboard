@@ -1,279 +1,378 @@
-// app/subscriptions/page.tsx
 "use client";
 
 import { useState } from "react";
-import { CheckCircle2, XCircle, CreditCard, Building, DollarSign, TrendingUp, AlertCircle, X } from "lucide-react";
+import { 
+  CheckCircle2, 
+  CreditCard, 
+  TrendingUp, 
+  AlertCircle, 
+  X, 
+  Loader2, 
+  ChevronLeft, 
+  ChevronRight, 
+  FileText,
+  ShieldCheck,
+  Zap,
+  ArrowRight
+} from "lucide-react";
+import { 
+  useGetSubscriptionsQuery, 
+  useGetPlansQuery,
+  useChangeUserPlanMutation,
+  useRefundSubscriptionMutation,
+  useGetUserSubscriptionQuery,
+} from "@/lib/adminApi";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
-type Subscription = {
-  dealer: string;
-  plan: "Enterprise" | "Pro" | "Basic";
-  status: "active" | "payment failed";
-  amount: number;
-  startDate: string;
-  endDate: string;
-  paymentMethod: "Credit Card" | "Bank Transfer";
-};
-
-const mockSubscriptions: Subscription[] = [
-  {
-    dealer: "Hans Mueller",
-    plan: "Enterprise",
-    status: "active",
-    amount: 2999,
-    startDate: "2025-11-15",
-    endDate: "2026-11-15",
-    paymentMethod: "Credit Card",
-  },
-  {
-    dealer: "Pierre Duboils",
-    plan: "Pro",
-    status: "active",
-    amount: 999,
-    startDate: "2026-01-01",
-    endDate: "2027-01-01",
-    paymentMethod: "Bank Transfer",
-  },
-  {
-    dealer: "Klaus Weber",
-    plan: "Pro",
-    status: "payment failed",
-    amount: 998, // slightly different to show failed case
-    startDate: "2025-09-01",
-    endDate: "2026-09-01",
-    paymentMethod: "Credit Card",
-  },
-];
+function fmtDate(date: string) {
+  if (!date) return "N/A";
+  return new Date(date).toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
 
 export default function SubscriptionManagement() {
-  const [selectedSub, setSelectedSub] = useState<Subscription | null>(null);
+  const [page, setPage] = useState(1);
+  const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
+  
+  const { data, isLoading, isError } = useGetSubscriptionsQuery({ page });
+  const { data: plans } = useGetPlansQuery();
 
-  const totalRevenue = mockSubscriptions.reduce((sum, sub) => sum + sub.amount, 0);
-  const activeCount = mockSubscriptions.filter(s => s.status === "active").length;
-  const failedCount = mockSubscriptions.filter(s => s.status === "payment failed").length;
+  const totalPages = data ? Math.ceil(data.count / 10) : 1;
+
+  const handleExportPDF = () => {
+    if (!data?.results) return;
+
+    const doc = new jsPDF();
+    
+    // Header
+    doc.setFontSize(18);
+    doc.setTextColor(40);
+    doc.text("Subscription Report", 14, 22);
+    
+    doc.setFontSize(10);
+    doc.setTextColor(100);
+    doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 30);
+    doc.text(`Total Subscriptions: ${data.count}`, 14, 35);
+
+    // Table
+    const tableData = data.results.map((sub) => [
+      sub.user_email,
+      sub.plan.toUpperCase(),
+      sub.status.toUpperCase(),
+      fmtDate(sub.current_period_end),
+      fmtDate(sub.created_at)
+    ]);
+
+    autoTable(doc, {
+      startY: 45,
+      head: [["Dealer Email", "Plan", "Status", "Renewal Date", "Created At"]],
+      body: tableData,
+      theme: 'striped',
+      headStyles: { fillColor: [16, 185, 129] }, // Emerald-500
+      styles: { fontSize: 9 }
+    });
+
+    doc.save(`subscriptions-report-${new Date().getTime()}.pdf`);
+  };
 
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100">
       <div className="max-w-9xl mx-auto space-y-8">
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          <StatCard
-            title="Total Revenue"
-            value={`CHF ${totalRevenue.toLocaleString()}`}
-            icon={DollarSign}
-            trend="neutral"
-            color="yellow"
-          />
-          <StatCard
-            title="Active Subscriptions"
-            value={activeCount.toString()}
-            icon={TrendingUp}
-            trend="up"
-            color="green"
-          />
-          <StatCard
-            title="Failed Payments"
-            value={failedCount.toString()}
-            icon={AlertCircle}
-            trend="down"
-            color="red"
-          />
+        {/* Header */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Subscription Management</h1>
+            <p className="text-gray-400 text-sm mt-1">
+              Monitor and manage dealer subscriptions and recurring billing
+            </p>
+          </div>
+          <button 
+            onClick={handleExportPDF}
+            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm transition font-bold shadow-lg shadow-emerald-900/20"
+          >
+            <FileText size={16} />
+            Export PDF
+          </button>
+        </div>
+
+        {/* Stats Strip */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <StatMini label="Active Subscriptions" value={data?.results.filter(s => s.status === 'active').length || 0} icon={<ShieldCheck size={20} />} color="text-emerald-400" />
+          <StatMini label="Total Subscriptions" value={data?.count || 0} icon={<TrendingUp size={20} />} color="text-blue-400" />
+          <StatMini label="Premium Plans" value={data?.results.filter(s => s.plan === 'premium').length || 0} icon={<Zap size={20} />} color="text-purple-400" />
+          <StatMini label="Pending Invoices" value={0} icon={<CreditCard size={20} />} color="text-amber-400" />
         </div>
 
         {/* Table Section */}
-        <div className="space-y-3">
-          <div>
-            <h2 className="text-xl font-bold">Subscription Management</h2>
-            <p className="text-gray-400 text-sm mt-1">
-              Monitor and manage dealer subscriptions
-            </p>
-          </div>
-
-          <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm text-left">
-                <thead className="bg-gray-800/60">
+        <div className="bg-[#111113] border border-gray-800 rounded-2xl overflow-hidden shadow-sm">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm text-left">
+              <thead className="bg-gray-900/50">
+                <tr>
+                  <th className="px-6 py-4 font-semibold text-gray-400 uppercase tracking-wider text-[10px]">Dealer / Email</th>
+                  <th className="px-6 py-4 font-semibold text-gray-400 uppercase tracking-wider text-[10px]">Plan</th>
+                  <th className="px-6 py-4 font-semibold text-gray-400 uppercase tracking-wider text-[10px]">Status</th>
+                  <th className="px-6 py-4 font-semibold text-gray-400 uppercase tracking-wider text-[10px]">Renewal Date</th>
+                  <th className="px-6 py-4 font-semibold text-gray-400 uppercase tracking-wider text-[10px]">Created</th>
+                  <th className="px-6 py-4 font-semibold text-gray-400 uppercase tracking-wider text-[10px] text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-800/50">
+                {isLoading && (
                   <tr>
-                    <th className="px-6 py-4 font-medium">Dealer</th>
-                    <th className="px-6 py-4 font-medium">Plan</th>
-                    <th className="px-6 py-4 font-medium">Status</th>
-                    <th className="px-6 py-4 font-medium">Amount</th>
-                    <th className="px-6 py-4 font-medium">Start Date</th>
-                    <th className="px-6 py-4 font-medium">End Date</th>
-                    <th className="px-6 py-4 font-medium">Payment Method</th>
-                    <th className="px-6 py-4 font-medium text-right">Actions</th>
+                    <td colSpan={6} className="px-6 py-20 text-center">
+                      <Loader2 size={32} className="text-emerald-500 animate-spin mx-auto" />
+                    </td>
                   </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-800">
-                  {mockSubscriptions.map((sub) => (
-                    <tr key={sub.dealer} className="hover:bg-gray-800/40 transition">
-                      <td className="px-6 py-4 font-medium">{sub.dealer}</td>
-                      <td className="px-6 py-4">{sub.plan}</td>
-                      <td className="px-6 py-4">
-                        <StatusBadge status={sub.status} />
-                      </td>
-                      <td className="px-6 py-4">CHF {sub.amount.toLocaleString()}</td>
-                      <td className="px-6 py-4">{sub.startDate}</td>
-                      <td className="px-6 py-4">{sub.endDate}</td>
-                      <td className="px-6 py-4">{sub.paymentMethod}</td>
-                      <td className="px-6 py-4 text-right space-x-3 text-sm">
-                        <button
-                          onClick={() => setSelectedSub(sub)}
-                          className="text-blue-400 hover:text-blue-300 transition"
-                        >
-                          Manage
-                        </button>
-                        <button className="text-red-400 hover:text-red-300 transition">
-                          Refund
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                )}
+                {isError && (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-20 text-center text-red-400">
+                      <div className="flex flex-col items-center gap-3">
+                        <AlertCircle size={32} />
+                        <p>Failed to load subscription data.</p>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+                {!isLoading && !isError && data?.results.map((sub) => (
+                  <tr key={sub.id} className="hover:bg-gray-800/30 transition group">
+                    <td className="px-6 py-4">
+                      <div className="font-medium text-white">{sub.user_email}</div>
+                      <div className="text-[10px] text-gray-500 font-mono mt-0.5 uppercase">ID: {sub.user_id}</div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest border ${
+                        sub.plan === 'premium' ? "bg-purple-950/30 text-purple-400 border-purple-800/50" : "bg-blue-950/30 text-blue-400 border-blue-800/50"
+                      }`}>
+                        {sub.plan}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <StatusBadge status={sub.status} />
+                    </td>
+                    <td className="px-6 py-4 text-gray-300 font-medium">{fmtDate(sub.current_period_end)}</td>
+                    <td className="px-6 py-4 text-gray-500">{fmtDate(sub.created_at)}</td>
+                    <td className="px-6 py-4 text-right">
+                      <button
+                        onClick={() => setSelectedUserId(sub.user_id)}
+                        className="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-200 text-xs font-bold rounded-lg transition-all group-hover:scale-105"
+                      >
+                        Manage
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
 
-          {/* Pagination placeholder */}
-          <div className="flex items-center justify-between text-sm text-gray-400">
-            <div>Showing 1–{mockSubscriptions.length} of many subscriptions</div>
-            <div className="flex gap-1">
-              <button className="px-3 py-1 bg-gray-800 rounded hover:bg-gray-700 disabled:opacity-50" disabled>←</button>
-              <button className="px-3 py-1 bg-gray-700 rounded">1</button>
-              <button className="px-3 py-1 bg-gray-800 rounded hover:bg-gray-700">2</button>
-              <button className="px-3 py-1 bg-gray-800 rounded hover:bg-gray-700">3</button>
-              <span className="px-2">...</span>
-              <button className="px-3 py-1 bg-gray-800 rounded hover:bg-gray-700">18</button>
-              <button className="px-3 py-1 bg-gray-800 rounded hover:bg-gray-700">→</button>
+          {/* Pagination */}
+          {data && totalPages > 1 && (
+            <div className="flex items-center justify-between px-6 py-4 border-t border-gray-800 bg-gray-900/30 text-xs text-gray-500">
+              <div>Page {page} of {totalPages} • Total {data.count} subscriptions</div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                  disabled={!data.previous}
+                  className="p-2 bg-gray-800 rounded-lg hover:bg-gray-700 disabled:opacity-30 transition"
+                >
+                  <ChevronLeft size={16} />
+                </button>
+                <button
+                  onClick={() => setPage(p => p + 1)}
+                  disabled={!data.next}
+                  className="p-2 bg-gray-800 rounded-lg hover:bg-gray-700 disabled:opacity-30 transition"
+                >
+                  <ChevronRight size={16} />
+                </button>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
 
-      {/* Manage Subscription Modal */}
-      {selectedSub && (
-        <ManageSubscriptionModal
-          subscription={selectedSub}
-          onClose={() => setSelectedSub(null)}
+      {/* Detail Modal */}
+      {selectedUserId && (
+        <ManageModal
+          userId={selectedUserId}
+          onClose={() => setSelectedUserId(null)}
+          plans={plans || []}
         />
       )}
     </div>
   );
 }
 
-function StatCard({
-  title,
-  value,
-  icon: Icon,
-  trend,
-  color,
-}: {
-  title: string;
-  value: string;
-  icon: any;
-  trend: "up" | "down" | "neutral";
-  color: "green" | "red" | "yellow";
-}) {
-  const colors = {
-    green: "text-emerald-400 bg-emerald-950/40 border-emerald-800/50",
-    red: "text-red-400 bg-red-950/40 border-red-800/50",
-    yellow: "text-amber-400 bg-amber-950/40 border-amber-800/50",
-  };
-
-  const icons = {
-    up: <TrendingUp className="h-4 w-4 text-emerald-400" />,
-    down: <AlertCircle className="h-4 w-4 text-red-400" />,
-    neutral: null,
-  };
-
+function StatMini({ label, value, icon, color }: any) {
   return (
-    <div className={`bg-gray-900 border ${colors[color]} rounded-xl p-5 shadow-sm`}>
-      <div className="flex items-center justify-between">
-        <div className="space-y-1">
-          <p className="text-sm text-gray-400">{title}</p>
-          <p className="text-2xl font-bold">{value}</p>
-        </div>
-        <div className={`p-3 rounded-lg ${colors[color].split(" ")[1]}`}>
-          <Icon className="h-6 w-6" />
-        </div>
+    <div className="bg-[#111113] border border-gray-800/50 rounded-2xl p-5 flex items-center gap-4 shadow-sm">
+      <div className={`p-3 rounded-xl bg-gray-900 ${color} shadow-inner`}>
+        {icon}
       </div>
-      {trend !== "neutral" && (
-        <div className="mt-3 flex items-center gap-1 text-xs">
-          {icons[trend]}
-          <span>{trend === "up" ? "+12% this month" : "1 overdue"}</span>
-        </div>
-      )}
+      <div>
+        <div className="text-2xl font-bold text-white tracking-tight">{value}</div>
+        <div className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mt-0.5">{label}</div>
+      </div>
     </div>
   );
 }
 
-function StatusBadge({ status }: { status: Subscription["status"] }) {
-  const isActive = status === "active";
+function StatusBadge({ status }: { status: string }) {
+  const active = status === "active";
   return (
-    <span
-      className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium border capitalize ${
-        isActive
-          ? "bg-emerald-950 text-emerald-400 border-emerald-800"
-          : "bg-red-950 text-red-400 border-red-800"
-      }`}
-    >
-      {isActive ? "active" : "payment failed"}
+    <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest border ${
+      active ? "bg-emerald-950/30 text-emerald-400 border-emerald-800/50" : "bg-red-950/30 text-red-400 border-red-800/50"
+    }`}>
+      <span className={`w-1 h-1 rounded-full ${active ? "bg-emerald-400 animate-pulse" : "bg-red-400"}`} />
+      {status}
     </span>
   );
 }
 
-type ManageModalProps = {
-  subscription: Subscription;
-  onClose: () => void;
-};
+function ManageModal({ userId, onClose, plans }: { userId: number; onClose: () => void; plans: any[] }) {
+  const { data: detail, isLoading } = useGetUserSubscriptionQuery(userId);
+  const [changePlan, { isLoading: isChanging }] = useChangeUserPlanMutation();
+  const [refund, { isLoading: isRefunding }] = useRefundSubscriptionMutation();
+  const [selectedPlan, setSelectedPlan] = useState("");
 
-function ManageSubscriptionModal({ subscription, onClose }: ManageModalProps) {
+  const handlePlanChange = async () => {
+    if (!selectedPlan) return;
+    try {
+      await changePlan({ userId, plan: selectedPlan }).unwrap();
+      alert("Plan updated successfully!");
+    } catch (err) {
+      alert("Failed to update plan.");
+    }
+  };
+
+  const handleRefund = async (invoiceId: string) => {
+    if (!confirm("Are you sure you want to refund this invoice?")) return;
+    try {
+      await refund({ userId, stripe_invoice_id: invoiceId }).unwrap();
+      alert("Refund processed successfully!");
+    } catch (err) {
+      alert("Refund failed.");
+    }
+  };
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-      <div className="bg-gray-900 border border-gray-800 rounded-xl w-full max-w-md overflow-hidden shadow-2xl">
-        {/* Header */}
-        <div className="px-6 py-4 border-b border-gray-800 flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Manage Subscription</h2>
-          <button
-            onClick={onClose}
-            className="p-1.5 hover:bg-gray-800 rounded-full transition"
-          >
-            <X className="h-5 w-5 text-gray-400" />
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
+      <div className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
+        <div className="px-6 py-4 border-b border-gray-800 flex items-center justify-between bg-gray-950/50">
+          <h2 className="text-lg font-bold text-white">Subscription Details</h2>
+          <button onClick={onClose} className="p-1.5 hover:bg-gray-800 rounded-lg transition">
+            <X size={20} className="text-gray-400" />
           </button>
         </div>
 
-        {/* Body */}
-        <div className="p-6 space-y-6 text-sm">
-          <div className="space-y-2">
-            <div className="font-medium">Dealer: {subscription.dealer}</div>
-            <div>Current Plan: <span className="font-medium">{subscription.plan}</span></div>
-          </div>
+        <div className="flex-1 overflow-y-auto p-6 space-y-8 custom-scrollbar">
+          {isLoading ? (
+            <div className="py-20 flex justify-center"><Loader2 size={32} className="animate-spin text-emerald-500" /></div>
+          ) : detail ? (
+            <>
+              {/* Profile Summary */}
+              <div className="flex items-center gap-4 bg-gray-800/30 p-5 rounded-2xl border border-gray-800">
+                <div className="w-12 h-12 rounded-full bg-emerald-600 flex items-center justify-center font-bold text-xl text-white shadow-lg">
+                  {detail.user_email.charAt(0).toUpperCase()}
+                </div>
+                <div>
+                  <div className="text-lg font-bold text-white">{detail.user_email}</div>
+                  <div className="text-xs text-gray-500 font-medium">Customer Since {fmtDate(detail.created_at)}</div>
+                </div>
+                <div className="ml-auto">
+                  <StatusBadge status={detail.status} />
+                </div>
+              </div>
 
-          {/* Change Plan */}
-          <div className="space-y-3">
-            <label className="block text-gray-300 font-medium">Change Plan</label>
-            <select className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-gray-600">
-              <option>Enterprise - CHF 2999/y</option>
-              <option>Pro - CHF 999/y</option>
-              <option>Basic - CHF 499/y</option>
-            </select>
-            <button className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2.5 rounded-lg transition">
-              Update Plan
-            </button>
-          </div>
+              {/* Plan Management */}
+              <div className="space-y-4">
+                <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest flex items-center gap-2">
+                  <CreditCard size={14} /> Subscription Control
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="p-5 bg-gray-950 border border-gray-800 rounded-2xl space-y-4">
+                    <div className="text-sm font-medium text-gray-300">Switch Plan</div>
+                    <select 
+                      value={selectedPlan || detail.plan}
+                      onChange={(e) => setSelectedPlan(e.target.value)}
+                      className="w-full bg-gray-900 border border-gray-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-emerald-500/50 text-white"
+                    >
+                      {plans.map((p: any) => (
+                        <option key={p.id} value={p.plan}>{p.plan.toUpperCase()} — {p.currency.toUpperCase()} {p.price}/{p.interval}</option>
+                      ))}
+                    </select>
+                    <button 
+                      onClick={handlePlanChange}
+                      disabled={isChanging || !selectedPlan || selectedPlan === detail.plan}
+                      className="w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold py-3 rounded-xl transition-all shadow-lg active:scale-95"
+                    >
+                      {isChanging && <Loader2 size={16} className="animate-spin" />}
+                      Update Subscription
+                    </button>
+                  </div>
 
-          {/* Extend Subscription */}
-          <div className="space-y-3 pt-4 border-t border-gray-800">
-            <label className="block text-gray-300 font-medium">Extend Subscription</label>
-            <input
-              type="number"
-              defaultValue={30}
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-gray-600"
-              min={1}
-            />
-            <button className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 rounded-lg transition">
-              Extend Subscription
-            </button>
-          </div>
+                  <div className="p-5 bg-gray-950 border border-gray-800 rounded-2xl flex flex-col justify-between">
+                    <div className="space-y-1">
+                      <div className="text-sm font-medium text-gray-300">Payment Method</div>
+                      <div className="flex items-center gap-2 text-white font-bold mt-2">
+                        <CreditCard size={18} className="text-gray-500" />
+                        <span className="capitalize">{detail.payment_method?.brand}</span> ending in {detail.payment_method?.last4}
+                      </div>
+                      <div className="text-[10px] text-gray-500 mt-1 uppercase tracking-wider">Expires {detail.payment_method?.exp_month}/{detail.payment_method?.exp_year}</div>
+                    </div>
+                    <div className="pt-4 mt-4 border-t border-gray-800 text-xs text-gray-400">
+                      Auto-renews on <span className="text-gray-200 font-bold">{fmtDate(detail.current_period_end)}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Invoices */}
+              <div className="space-y-4">
+                <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest flex items-center gap-2">
+                  <FileText size={14} /> Billing History
+                </h3>
+                <div className="space-y-3">
+                  {detail.invoices.map((inv) => (
+                    <div key={inv.invoice_id} className="flex items-center justify-between p-4 bg-gray-950 border border-gray-800 rounded-xl hover:border-gray-700 transition">
+                      <div className="flex items-center gap-4">
+                        <div className="p-2 bg-gray-900 rounded-lg"><FileText size={16} className="text-gray-500" /></div>
+                        <div>
+                          <div className="text-sm font-bold text-white">{inv.currency.toUpperCase()} {inv.amount_paid}</div>
+                          <div className="text-[10px] text-gray-500 font-mono mt-0.5">{inv.invoice_id}</div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <span className="text-xs font-medium text-emerald-400 bg-emerald-950/30 px-2 py-0.5 rounded border border-emerald-900/50 uppercase tracking-wider">
+                          {inv.status}
+                        </span>
+                        <div className="flex gap-2">
+                          <a href={inv.hosted_invoice_url} target="_blank" rel="noopener noreferrer" className="p-2 bg-gray-800 hover:bg-gray-700 rounded-lg transition text-gray-400">
+                            <ArrowRight size={14} />
+                          </a>
+                          <button 
+                            onClick={() => handleRefund(inv.invoice_id)}
+                            disabled={isRefunding}
+                            className="px-3 py-1 bg-red-950/30 hover:bg-red-950/50 text-red-400 border border-red-900/50 text-[10px] font-bold rounded-lg transition uppercase tracking-widest"
+                          >
+                            Refund
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  {detail.invoices.length === 0 && (
+                    <div className="text-center py-10 text-gray-500 text-sm italic">No billing history available.</div>
+                  )}
+                </div>
+              </div>
+            </>
+          ) : null}
         </div>
       </div>
     </div>

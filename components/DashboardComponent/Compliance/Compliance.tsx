@@ -1,53 +1,68 @@
-// app/compliance/audit-logs/page.tsx
 "use client";
 
 import { useState } from "react";
-import { Download, Search, Filter } from "lucide-react";
+import { FileText, Search, ChevronLeft, ChevronRight, Loader2, AlertCircle } from "lucide-react";
+import { useGetAuditLogsQuery } from "@/lib/adminApi";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
-type AuditLog = {
-  timestamp: string;
-  admin: string;
-  action: string;
-  details: string;
-  ip: string;
-  actionColor?: "text-emerald-400" | "text-amber-400" | "text-red-400";
-};
+function fmt(date: string) {
+  return new Date(date).toLocaleString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
 
-const mockAuditLogs: AuditLog[] = [
-  {
-    timestamp: "3/3/2026, 3:15:00 PM",
-    admin: "Super Admin",
-    action: "Suspended Dealer",
-    details: "Suspended Klaus Weber for suspicious bidding",
-    ip: "192.168.1.180",
-    actionColor: "text-red-400",
-  },
-  {
-    timestamp: "3/2/2026, 8:20:00 PM",
-    admin: "Manager Admin",
-    action: "Approved Dealer",
-    details: "Approved registration for Marco Rossi",
-    ip: "192.168.1.181",
-    actionColor: "text-emerald-400",
-  },
-  {
-    timestamp: "3/1/2026, 5:00:00 PM",
-    admin: "Super Admin",
-    action: "Updated Subscription",
-    details: "Manually extended subscription for Hans Mueller",
-    ip: "192.168.1.180",
-    actionColor: "text-emerald-400",
-  },
-];
+function getActionColor(action: string) {
+  if (action.includes("suspend") || action.includes("delete") || action.includes("remove")) return "text-red-400";
+  if (action.includes("approve") || action.includes("reactivate") || action.includes("login")) return "text-emerald-400";
+  if (action.includes("update") || action.includes("flag")) return "text-amber-400";
+  return "text-blue-400";
+}
 
 export default function AuditLogsPage() {
-  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const { data, isLoading, isError } = useGetAuditLogsQuery({ page });
 
-  const stats = {
-    total: mockAuditLogs.length,
-    today: 0,
-    thisWeek: mockAuditLogs.length,
-    uniqueAdmins: new Set(mockAuditLogs.map((log) => log.admin)).size,
+  const totalPages = data ? Math.ceil(data.count / 10) : 1;
+
+  const handleExportPDF = () => {
+    if (!data?.results) return;
+
+    const doc = new jsPDF();
+    
+    // Header
+    doc.setFontSize(18);
+    doc.setTextColor(40);
+    doc.text("Compliance & Audit Report", 14, 22);
+    
+    doc.setFontSize(10);
+    doc.setTextColor(100);
+    doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 30);
+    doc.text(`Total Log Entries: ${data.count}`, 14, 35);
+
+    // Table
+    const tableData = data.results.map((log) => [
+      fmt(log.created_at),
+      log.actor_email,
+      log.action.toUpperCase().replace(/_/g, ' '),
+      log.description,
+      log.ip_address
+    ]);
+
+    autoTable(doc, {
+      startY: 45,
+      head: [["Timestamp", "Admin", "Action", "Details", "IP Address"]],
+      body: tableData,
+      theme: 'striped',
+      headStyles: { fillColor: [16, 185, 129] }, // Emerald-500
+      styles: { fontSize: 8 }
+    });
+
+    doc.save(`audit-logs-report-${new Date().getTime()}.pdf`);
   };
 
   return (
@@ -58,7 +73,7 @@ export default function AuditLogsPage() {
           <div>
             <div className="flex items-center gap-2">
               <div className="w-5 h-5 rounded-full bg-emerald-600 flex items-center justify-center">
-                <span className="text-xs font-bold">✓</span>
+                <span className="text-xs font-bold text-white">✓</span>
               </div>
               <h1 className="text-2xl font-bold">Compliance & Audit Logs</h1>
             </div>
@@ -67,92 +82,113 @@ export default function AuditLogsPage() {
             </p>
           </div>
 
-          <button className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg text-sm transition">
-            <Download size={16} />
-            Export
+          <button 
+            onClick={handleExportPDF}
+            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm transition font-bold shadow-lg shadow-emerald-900/20"
+          >
+            <FileText size={16} />
+            Export PDF
           </button>
         </div>
 
-        {/* Filters & Search */}
-        <div className="flex flex-col sm:flex-row gap-3">
-          <div className="relative flex-1">
-            <input
-              type="text"
-              placeholder="Search logs..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full bg-gray-900 border border-gray-700 rounded-lg py-2.5 pl-10 pr-4 text-sm focus:outline-none focus:border-gray-600 transition"
-            />
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
-          </div>
-
-          <div className="flex gap-3">
-            <select className="bg-gray-900 border border-gray-700 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-gray-600 min-w-[160px]">
-              <option>All Actions</option>
-              <option>Suspended Dealer</option>
-              <option>Approved Dealer</option>
-              <option>Updated Subscription</option>
-              <option>Login</option>
-              <option>Role Change</option>
-            </select>
-
-            <select className="bg-gray-900 border border-gray-700 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-gray-600 min-w-[140px]">
-              <option>All Time</option>
-              <option>Today</option>
-              <option>This Week</option>
-              <option>This Month</option>
-              <option>Last 30 Days</option>
-            </select>
-          </div>
-        </div>
-
         {/* Table */}
-        <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+        <div className="bg-[#111113] border border-gray-800 rounded-xl overflow-hidden shadow-sm">
           <div className="overflow-x-auto">
             <table className="w-full text-sm text-left">
               <thead className="bg-gray-800/60">
                 <tr>
-                  <th className="px-6 py-4 font-medium">Timestamp</th>
-                  <th className="px-6 py-4 font-medium">Admin</th>
-                  <th className="px-6 py-4 font-medium">Action</th>
-                  <th className="px-6 py-4 font-medium">Details</th>
-                  <th className="px-6 py-4 font-medium">IP Address</th>
+                  <th className="px-6 py-4 font-medium text-gray-400 text-[10px] uppercase tracking-wider">Timestamp</th>
+                  <th className="px-6 py-4 font-medium text-gray-400 text-[10px] uppercase tracking-wider">Admin</th>
+                  <th className="px-6 py-4 font-medium text-gray-400 text-[10px] uppercase tracking-wider">Action</th>
+                  <th className="px-6 py-4 font-medium text-gray-400 text-[10px] uppercase tracking-wider">Details</th>
+                  <th className="px-6 py-4 font-medium text-gray-400 text-[10px] uppercase tracking-wider">IP Address</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-800">
-                {mockAuditLogs.map((log, index) => (
-                  <tr key={index} className="hover:bg-gray-800/40 transition">
-                    <td className="px-6 py-4 text-gray-300">{log.timestamp}</td>
-                    <td className="px-6 py-4 font-medium">{log.admin}</td>
-                    <td className={`px-6 py-4 font-medium ${log.actionColor || "text-gray-300"}`}>
-                      {log.action}
+              <tbody className="divide-y divide-gray-800/50">
+                {isLoading && (
+                  <tr>
+                    <td colSpan={5} className="px-6 py-16 text-center">
+                      <Loader2 className="h-6 w-6 text-emerald-500 animate-spin mx-auto" />
                     </td>
-                    <td className="px-6 py-4 text-gray-300">{log.details}</td>
-                    <td className="px-6 py-4 text-gray-500 font-mono">{log.ip}</td>
+                  </tr>
+                )}
+                {isError && (
+                  <tr>
+                    <td colSpan={5} className="px-6 py-16 text-center text-red-400">
+                      <div className="flex items-center justify-center gap-2">
+                        <AlertCircle size={18} />
+                        Failed to load audit logs.
+                      </div>
+                    </td>
+                  </tr>
+                )}
+                {!isLoading && !isError && data?.results.map((log) => (
+                  <tr key={log.id} className="hover:bg-gray-800/40 transition group">
+                    <td className="px-6 py-4 text-gray-300 group-hover:text-white transition-colors">{fmt(log.created_at)}</td>
+                    <td className="px-6 py-4 font-medium text-gray-200">
+                      <div className="flex flex-col">
+                        <span>{log.actor_email}</span>
+                        {log.actor_role && <span className="text-[10px] text-gray-500 uppercase tracking-wider">{log.actor_role}</span>}
+                      </div>
+                    </td>
+                    <td className={`px-6 py-4 font-bold uppercase text-[10px] tracking-widest ${getActionColor(log.action)}`}>
+                      {log.action.replace(/_/g, ' ')}
+                    </td>
+                    <td className="px-6 py-4 text-gray-300 leading-relaxed max-w-md">{log.description}</td>
+                    <td className="px-6 py-4 text-gray-500 font-mono text-xs">{log.ip_address}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
+
+          {/* Pagination */}
+          {data && totalPages > 1 && (
+            <div className="flex items-center justify-between px-6 py-4 border-t border-gray-800 bg-gray-900/30 text-xs text-gray-500">
+              <div>
+                Showing page {page} of {totalPages} ({data.count} logs)
+              </div>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={!data.previous}
+                  className="p-1.5 bg-gray-800 rounded-lg hover:bg-gray-700 disabled:opacity-40 transition"
+                >
+                  <ChevronLeft size={16} />
+                </button>
+                <span className="px-3 py-1 bg-gray-700 text-gray-200 rounded-lg font-medium">{page}</span>
+                <button
+                  onClick={() => setPage((p) => p + 1)}
+                  disabled={!data.next}
+                  className="p-1.5 bg-gray-800 rounded-lg hover:bg-gray-700 disabled:opacity-40 transition"
+                >
+                  <ChevronRight size={16} />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Stats Footer */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
-          <StatBox label="Total Actions" value={stats.total} />
-          <StatBox label="Today" value={stats.today} />
-          <StatBox label="This Week" value={stats.thisWeek} />
-          <StatBox label="Unique Admins" value={stats.uniqueAdmins} />
-        </div>
+        {/* Summary Stats */}
+        {data && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <StatBox label="Total Logged Actions" value={data.count} color="text-cyan-400" />
+            <StatBox label="Today's Activity" value={data.results.filter(l => new Date(l.created_at).toDateString() === new Date().toDateString()).length} color="text-emerald-400" />
+            <StatBox label="System Logins" value={data.results.filter(l => l.action === "admin_login").length} color="text-purple-400" />
+            <StatBox label="Security Alerts" value={data.results.filter(l => l.action.includes("suspend") || l.action.includes("flag")).length} color="text-red-400" />
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
-function StatBox({ label, value }: { label: string; value: number }) {
+function StatBox({ label, value, color }: { label: string; value: number; color?: string }) {
   return (
-    <div className="bg-gray-900 border border-gray-800 rounded-lg p-4">
-      <div className="text-2xl font-bold">{value}</div>
-      <div className="text-xs text-gray-400 mt-1">{label}</div>
+    <div className="bg-[#111113] border border-gray-800/50 rounded-xl p-5 flex flex-col gap-1 shadow-sm">
+      <div className={`text-2xl font-bold ${color || "text-white"}`}>{value}</div>
+      <div className="text-xs text-gray-500 font-medium uppercase tracking-wide">{label}</div>
     </div>
   );
 }
+
