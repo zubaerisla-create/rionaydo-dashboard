@@ -387,34 +387,36 @@ export default function AuctionsMonitor() {
 
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100">
-      <div className="max-w-9xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold">Auctions Monitor</h1>
-            <p className="text-gray-400 text-sm mt-1">Real-time auction oversight and control</p>
+      <div className="max-w-9xl mx-auto space-y-6 relative">
+        <div className="sticky top-0 z-40 bg-gray-950 pt-6 pb-4 flex flex-col gap-6 border-b border-gray-800/50 shadow-md shadow-gray-950">
+          {/* Header */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h1 className="text-2xl font-bold">Auctions Monitor</h1>
+              <p className="text-gray-400 text-sm mt-1">Real-time auction oversight and control</p>
+            </div>
+            <button onClick={() => refetch()} className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg text-sm transition">
+              <RefreshCw size={14} className="text-gray-400" /> Refresh
+            </button>
           </div>
-          <button onClick={() => refetch()} className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg text-sm transition">
-            <RefreshCw size={14} className="text-gray-400" /> Refresh
-          </button>
-        </div>
 
-        {/* Stats */}
-        {data && (
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {[
-              { label: "Total", value: data.count, color: "text-cyan-400" },
-              { label: "Active", value: data.results.filter(a => a.status === "active").length, color: "text-emerald-400" },
-              { label: "Sold", value: data.results.filter(a => a.status === "sold").length, color: "text-blue-400" },
-              { label: "Unsold", value: data.results.filter(a => a.status === "unsold").length, color: "text-gray-400" },
-            ].map(s => (
-              <div key={s.label} className="bg-gray-900 border border-gray-800 rounded-xl px-4 py-3">
-                <div className={`text-xl font-bold ${s.color}`}>{s.value}</div>
-                <div className="text-xs text-gray-500">{s.label}</div>
-              </div>
-            ))}
-          </div>
-        )}
+          {/* Stats */}
+          {data && (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {[
+                { label: "Total", value: data.count, color: "text-cyan-400" },
+                { label: "Active", value: data.results.filter(a => a.status === "active").length, color: "text-emerald-400" },
+                { label: "Sold", value: data.results.filter(a => a.status === "sold").length, color: "text-blue-400" },
+                { label: "Unsold", value: data.results.filter(a => a.status === "unsold").length, color: "text-gray-400" },
+              ].map(s => (
+                <div key={s.label} className="bg-gray-900 border border-gray-800 rounded-xl px-4 py-3">
+                  <div className={`text-xl font-bold ${s.color}`}>{s.value}</div>
+                  <div className="text-xs text-gray-500">{s.label}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
 
         {/* Table */}
         <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">

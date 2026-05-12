@@ -82,29 +82,31 @@ export default function SubscriptionManagement() {
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100">
       <div className="max-w-9xl mx-auto space-y-8">
-        {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">Subscription Management</h1>
-            <p className="text-gray-400 text-sm mt-1">
-              Monitor and manage dealer subscriptions and recurring billing
-            </p>
+        <div className="sticky top-0 z-40 bg-gray-950 pt-6 pb-4 flex flex-col gap-8 border-b border-gray-800/50 shadow-md shadow-gray-950">
+          {/* Header */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight">Subscription Management</h1>
+              <p className="text-gray-400 text-sm mt-1">
+                Monitor and manage dealer subscriptions and recurring billing
+              </p>
+            </div>
+            <button 
+              onClick={handleExportPDF}
+              className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm transition font-bold shadow-lg shadow-emerald-900/20"
+            >
+              <FileText size={16} />
+              Export PDF
+            </button>
           </div>
-          <button 
-            onClick={handleExportPDF}
-            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm transition font-bold shadow-lg shadow-emerald-900/20"
-          >
-            <FileText size={16} />
-            Export PDF
-          </button>
-        </div>
 
-        {/* Stats Strip */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatMini label="Active Subscriptions" value={data?.results.filter(s => s.status === 'active').length || 0} icon={<ShieldCheck size={20} />} color="text-emerald-400" />
-          <StatMini label="Total Subscriptions" value={data?.count || 0} icon={<TrendingUp size={20} />} color="text-blue-400" />
-          <StatMini label="Premium Plans" value={data?.results.filter(s => s.plan === 'premium').length || 0} icon={<Zap size={20} />} color="text-purple-400" />
-          <StatMini label="Pending Invoices" value={0} icon={<CreditCard size={20} />} color="text-amber-400" />
+          {/* Stats Strip */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <StatMini label="Active Subscriptions" value={data?.results.filter(s => s.status === 'active').length || 0} icon={<ShieldCheck size={20} />} color="text-emerald-400" />
+            <StatMini label="Total Subscriptions" value={data?.count || 0} icon={<TrendingUp size={20} />} color="text-blue-400" />
+            <StatMini label="Premium Plans" value={data?.results.filter(s => s.plan === 'premium').length || 0} icon={<Zap size={20} />} color="text-purple-400" />
+            <StatMini label="Pending Invoices" value={0} icon={<CreditCard size={20} />} color="text-amber-400" />
+          </div>
         </div>
 
         {/* Table Section */}

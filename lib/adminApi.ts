@@ -265,6 +265,7 @@ export type PaginatedAuctions = {
 export type ChatUser = {
   id: number;
   email: string;
+  name?: string;
   company?: string;
   role_kind?: string;
 };
@@ -274,6 +275,7 @@ export type ChatConversation = {
   updated_at: string;
   created_at: string;
   user: ChatUser;
+  has_new_message?: boolean;
 };
 
 export type PaginatedConversations = {
@@ -322,9 +324,9 @@ export const adminApi = createApi({
   tagTypes: ['Users', 'User', 'Auctions', 'Auction', 'Bids', 'Admins', 'Plans', 'Conversations', 'Messages'],
   endpoints: (builder) => ({
     // ── Users ──────────────────────────────────────────────────────────────
-    getUserList: builder.query<PaginatedUsers, { page?: number; search?: string }>({
-      query: ({ page = 1, search = '' } = {}) => ({
-        url: `/api/admin/user/list/?page=${page}${search ? `&search=${search}` : ''}`,
+    getUserList: builder.query<PaginatedUsers, { page?: number; search?: string; role?: string }>({
+      query: ({ page = 1, search = '', role = '' } = {}) => ({
+        url: `/api/admin/user/list/?page=${page}${search ? `&search=${search}` : ''}${role ? `&role=${role}` : ''}`,
         method: 'GET',
       }),
       providesTags: ['Users'],
@@ -614,9 +616,10 @@ export const adminApi = createApi({
     }),
 
     getPresignedUrl: builder.query<PresignedUrlResponse, { content_type: string; file_name: string }>({
-      query: ({ content_type, file_name }) => ({
-        url: `/api/admin/chat/upload/presigned-url/?content_type=${encodeURIComponent(content_type)}&file_name=${encodeURIComponent(file_name)}`,
+      query: (params) => ({
+        url: '/api/admin/chat/upload/presigned-url',
         method: 'GET',
+        params,
       }),
     }),
   }),

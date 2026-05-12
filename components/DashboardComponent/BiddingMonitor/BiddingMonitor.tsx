@@ -151,27 +151,29 @@ export default function SuspiciousBiddingDetection() {
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100">
       <div className="max-w-9xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="h-6 w-6 text-amber-500" />
-              <h1 className="text-2xl font-bold">Suspicious Bidding Detection</h1>
+        <div className="sticky top-0 z-40 bg-gray-950 pt-6 pb-4 flex flex-col gap-6 border-b border-gray-800/50 shadow-md shadow-gray-950">
+          {/* Header */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="h-6 w-6 text-amber-500" />
+                <h1 className="text-2xl font-bold">Suspicious Bidding Detection</h1>
+              </div>
+              <p className="text-gray-400 text-sm mt-1.5">
+                Review and manage flagged auctions with unusual behavior
+              </p>
             </div>
-            <p className="text-gray-400 text-sm mt-1.5">
-              Review and manage flagged auctions with unusual behavior
-            </p>
+            <button onClick={() => refetch()} className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg text-sm transition">
+              <RefreshCw size={14} className="text-gray-400" /> Refresh
+            </button>
           </div>
-          <button onClick={() => refetch()} className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg text-sm transition">
-            <RefreshCw size={14} className="text-gray-400" /> Refresh
-          </button>
-        </div>
 
-        {/* Stats Row */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <StatBox label="Total Flagged" value={data?.count || 0} color="text-amber-400" icon={Flag} />
-          <StatBox label="High Severity" value={data?.results.filter(a => a.flag_severity === 'high').length || 0} color="text-red-400" icon={AlertTriangle} />
-          <StatBox label="Active Violations" value={data?.results.filter(a => a.status === 'active').length || 0} color="text-cyan-400" icon={Users} />
+          {/* Stats Row */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <StatBox label="Total Flagged" value={data?.count || 0} color="text-amber-400" icon={Flag} />
+            <StatBox label="High Severity" value={data?.results.filter(a => a.flag_severity === 'high').length || 0} color="text-red-400" icon={AlertTriangle} />
+            <StatBox label="Active Violations" value={data?.results.filter(a => a.status === 'active').length || 0} color="text-cyan-400" icon={Users} />
+          </div>
         </div>
 
         {/* Table Container */}

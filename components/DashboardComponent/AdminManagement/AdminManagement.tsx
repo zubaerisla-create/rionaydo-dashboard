@@ -63,45 +63,46 @@ export default function AdminManagement() {
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100">
       <div className="mx-auto max-w-9xl space-y-8">
+        <div className="sticky top-0 z-40 bg-gray-950 pt-6 pb-4 flex flex-col gap-8 border-b border-gray-800/50 shadow-md shadow-gray-950">
+          {/* Header */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight">Administrator Management</h1>
+              <p className="text-gray-400 text-sm mt-1">
+                Maintain system security and staff access levels
+              </p>
+            </div>
 
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">Administrator Management</h1>
-            <p className="text-gray-400 text-sm mt-1">
-              Maintain system security and staff access levels
-            </p>
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold transition shadow-xl shadow-emerald-900/20 active:scale-95"
+            >
+              <Plus size={18} />
+              Add Administrator
+            </button>
           </div>
 
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold transition shadow-xl shadow-emerald-900/20 active:scale-95"
-          >
-            <Plus size={18} />
-            Add Administrator
-          </button>
-        </div>
-
-        {/* Stats row */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <StatCard
-            icon={Users}
-            label="Total Staff"
-            value={stats.total}
-            color="text-cyan-400"
-          />
-          <StatCard
-            icon={Shield}
-            label="Super Admins"
-            value={stats.superAdmins}
-            color="text-amber-400"
-          />
-          <StatCard
-            icon={Activity}
-            label="Standard Admins"
-            value={stats.admins}
-            color="text-emerald-400"
-          />
+          {/* Stats row */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <StatCard
+              icon={Users}
+              label="Total Staff"
+              value={stats.total}
+              color="text-cyan-400"
+            />
+            <StatCard
+              icon={Shield}
+              label="Super Admins"
+              value={stats.superAdmins}
+              color="text-amber-400"
+            />
+            <StatCard
+              icon={Activity}
+              label="Standard Admins"
+              value={stats.admins}
+              color="text-emerald-400"
+            />
+          </div>
         </div>
 
         {/* Table Section */}

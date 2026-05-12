@@ -35,6 +35,7 @@ export default function SupportMessagingCenter() {
   const [messageInput, setMessageInput] = useState("");
   const [showSettings, setShowSettings] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [seenConversations, setSeenConversations] = useState<Set<number>>(new Set());
 
   // RTK Query Hooks
   const { data: conversationsData, isLoading: isConversationsLoading } = useGetConversationsQuery();
@@ -91,14 +92,20 @@ export default function SupportMessagingCenter() {
 
     setIsUploading(true);
     try {
-      const { data: presignedData } = await getPresignedUrl({
+      const result = await getPresignedUrl({
         content_type: file.type || "application/octet-stream",
         file_name: file.name,
-      });
+      }).unwrap();
 
-      if (!presignedData) throw new Error("Failed to get upload URL");
+      const presignedData = result;
 
-      const uploadRes = await fetch(presignedData.presigned_url, {
+      // Use the proxy defined in next.config.ts to avoid CORS issues
+      const uploadUrl = presignedData.presigned_url.replace(
+        "https://9e1fa7f5e162c72cd4fc3692cec4c8c3.r2.cloudflarestorage.com",
+        "/r2-proxy"
+      );
+
+      const uploadRes = await fetch(uploadUrl, {
         method: "PUT",
         headers: {
           "Content-Type": file.type || "application/octet-stream",
@@ -110,6 +117,7 @@ export default function SupportMessagingCenter() {
 
       const attachment: ChatAttachment = {
         object_key: presignedData.object_key,
+        public_url: presignedData.public_url,
         file_name: file.name,
         content_type: file.type || "application/octet-stream",
         size_bytes: file.size,
@@ -121,9 +129,10 @@ export default function SupportMessagingCenter() {
         attachments: [attachment],
       }).unwrap();
 
-    } catch (err) {
-      console.error(err);
-      alert("Failed to upload file and send message.");
+    } catch (err: any) {
+      console.error("Upload/Send Error:", err);
+      const validationErrors = err.data?.extra ? JSON.stringify(err.data.extra) : "";
+      alert(`Failed to upload file and send message. ${validationErrors}`);
     } finally {
       setIsUploading(false);
       e.target.value = '';
@@ -174,31 +183,40 @@ export default function SupportMessagingCenter() {
               <div className="flex-1 overflow-y-auto p-3 space-y-3">
                 {isConversationsLoading ? (
                   <div className="flex justify-center p-4"><Loader2 className="animate-spin text-gray-500" /></div>
-                ) : conversationsData?.results.map((conversation) => (
+                ) : conversationsData?.results.map((conversation) => {
+                  const hasNew = conversation.has_new_message && !seenConversations.has(conversation.id);
+                  return (
                   <button
                     key={conversation.id}
                     onClick={() => {
                       setSelectedConversation(conversation);
                       setShowSettings(false);
+                      setSeenConversations(prev => new Set(prev).add(conversation.id));
                     }}
-                    className={`w-full text-left p-4 rounded-lg border transition-all ${
+                    className={`w-full text-left p-4 rounded-lg border transition-all relative ${
                       selectedConversation?.id === conversation.id
                         ? "bg-gray-900 border-emerald-500/50 shadow-lg shadow-emerald-500/5"
                         : "bg-gray-900/50 border-gray-800 hover:bg-gray-900 hover:border-gray-700"
                     }`}
                   >
-                    <div className="flex justify-between items-start mb-2">
-                      <div className="font-medium text-sm truncate">{conversation.user.email}</div>
-                      {/* Optional badges can go here if the API provides status */}
+                    {hasNew && (
+                      <div className="absolute top-3 right-3 px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-red-500 text-white shadow-[0_0_10px_rgba(239,68,68,0.3)] animate-pulse">
+                        New
+                      </div>
+                    )}
+                    <div className="flex justify-between items-start mb-1">
+                      <div className="font-semibold text-sm text-gray-100 truncate pr-4">{conversation.user.name || "Unknown Dealer"}</div>
                     </div>
 
-                    <div className="text-sm text-gray-300 mb-1.5 line-clamp-1">Conversation #{conversation.id}</div>
+                    <div className="text-xs text-gray-400 mb-2 line-clamp-1">{conversation.user.email}</div>
 
-                    <div className="flex items-center justify-between text-xs">
+                    <div className="flex items-center justify-between text-[10px]">
+                      <div className="text-gray-500 font-medium">#{conversation.id}</div>
                       <div className="text-gray-500">{formatDate(conversation.updated_at)}</div>
                     </div>
                   </button>
-                ))}
+                  );
+                })}
               </div>
             </>
           ) : (
@@ -252,9 +270,9 @@ export default function SupportMessagingCenter() {
               {/* Header */}
               <div className="p-5 border-b border-gray-800 flex items-center justify-between bg-gray-950/50">
                 <div>
-                  <h2 className="font-semibold text-white">Conversation #{selectedConversation.id}</h2>
+                  <h2 className="font-semibold text-white">{selectedConversation.user.name || "Unknown Dealer"}</h2>
                   <div className="text-xs text-gray-400 mt-0.5">
-                    {selectedConversation.user.email}
+                    {selectedConversation.user.email} • Conversation #{selectedConversation.id}
                   </div>
                 </div>
 
@@ -338,6 +356,7 @@ export default function SupportMessagingCenter() {
                     <input 
                       type="file" 
                       onChange={handleFileUpload} 
+                      accept=".doc,.docx,.pdf,image/jpeg,image/png"
                       className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                       disabled={isSending || isUploading}
                     />

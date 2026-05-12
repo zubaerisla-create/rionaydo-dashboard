@@ -112,11 +112,10 @@ function UserDetailModal({
         {/* Toast */}
         {toast && (
           <div
-            className={`absolute top-4 right-4 z-50 flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium shadow-lg ${
-              toast.ok
+            className={`absolute top-4 right-4 z-50 flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium shadow-lg ${toast.ok
                 ? "bg-emerald-900 border border-emerald-700 text-emerald-300"
                 : "bg-red-900 border border-red-700 text-red-300"
-            }`}
+              }`}
           >
             {toast.ok ? <CheckCircle size={15} /> : <AlertCircle size={15} />}
             {toast.msg}
@@ -179,11 +178,10 @@ function UserDetailModal({
                       {user.approval_status}
                     </span>
                     <span
-                      className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium border capitalize ${
-                        user.is_active
+                      className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium border capitalize ${user.is_active
                           ? "bg-emerald-950 text-emerald-400 border-emerald-800"
                           : "bg-gray-800 text-gray-400 border-gray-700"
-                      }`}
+                        }`}
                     >
                       {user.is_active ? "Active" : "Inactive"}
                     </span>
@@ -486,11 +484,13 @@ export default function UserManagement() {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [roleFilter, setRoleFilter] = useState("");
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
 
   const { data, isLoading, isError, refetch } = useGetUserListQuery({
     page,
     search: debouncedSearch,
+    role: roleFilter,
   });
 
   const handleSearch = (val: string) => {
@@ -507,62 +507,77 @@ export default function UserManagement() {
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100">
       <div className="max-w-9xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">User Management</h1>
-            <p className="text-gray-400 text-sm mt-1">
-              Manage bidders, dealers and their approval status
-            </p>
+        <div className="sticky top-0 z-40 bg-gray-950 pt-6 pb-4 flex flex-col gap-6 border-b border-gray-800/50 shadow-md shadow-gray-950">
+          {/* Header */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight">User Management</h1>
+              <p className="text-gray-400 text-sm mt-1">
+                Manage bidders, dealers and their approval status
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <select
+                value={roleFilter}
+                onChange={(e) => {
+                  setRoleFilter(e.target.value);
+                  setPage(1);
+                }}
+                className="px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-sm focus:outline-none focus:border-emerald-600/60 text-gray-200"
+              >
+                <option value="">All Roles</option>
+                <option value="bidder">Bidder</option>
+                <option value="dealer">Dealer</option>
+              </select>
+
+              <div className="relative">
+                <Search
+                  size={15}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"
+                />
+                <input
+                  type="text"
+                  placeholder="Search by email…"
+                  value={search}
+                  onChange={(e) => handleSearch(e.target.value)}
+                  className="pl-9 pr-4 py-2 bg-gray-900 border border-gray-700 rounded-lg text-sm focus:outline-none focus:border-emerald-600/60 w-56"
+                />
+              </div>
+              <button
+                onClick={() => refetch()}
+                className="p-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg transition"
+                title="Refresh"
+              >
+                <RefreshCw size={15} className="text-gray-400" />
+              </button>
+            </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            <div className="relative">
-              <Search
-                size={15}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"
+          {/* Stats strip */}
+          {data && (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <MiniStat label="Total Users" value={data.count} color="text-cyan-400" />
+              <MiniStat
+                label="Active"
+                value={data.results.filter((u) => u.is_active).length}
+                color="text-emerald-400"
               />
-              <input
-                type="text"
-                placeholder="Search by email…"
-                value={search}
-                onChange={(e) => handleSearch(e.target.value)}
-                className="pl-9 pr-4 py-2 bg-gray-900 border border-gray-700 rounded-lg text-sm focus:outline-none focus:border-emerald-600/60 w-56"
+              <MiniStat
+                label="Pending"
+                value={
+                  data.results.filter((u) => u.approval_status === "pending").length
+                }
+                color="text-amber-400"
+              />
+              <MiniStat
+                label="Suspended"
+                value={data.results.filter((u) => !u.is_active).length}
+                color="text-red-400"
               />
             </div>
-            <button
-              onClick={() => refetch()}
-              className="p-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg transition"
-              title="Refresh"
-            >
-              <RefreshCw size={15} className="text-gray-400" />
-            </button>
-          </div>
+          )}
         </div>
-
-        {/* Stats strip */}
-        {data && (
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <MiniStat label="Total Users" value={data.count} color="text-cyan-400" />
-            <MiniStat
-              label="Active"
-              value={data.results.filter((u) => u.is_active).length}
-              color="text-emerald-400"
-            />
-            <MiniStat
-              label="Pending"
-              value={
-                data.results.filter((u) => u.approval_status === "pending").length
-              }
-              color="text-amber-400"
-            />
-            <MiniStat
-              label="Suspended"
-              value={data.results.filter((u) => !u.is_active).length}
-              color="text-red-400"
-            />
-          </div>
-        )}
 
         {/* Table */}
         <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
@@ -627,11 +642,10 @@ export default function UserManagement() {
                     </td>
                     <td className="px-6 py-4">
                       <span
-                        className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border ${
-                          user.is_active
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border ${user.is_active
                             ? "bg-emerald-950 text-emerald-400 border-emerald-800"
                             : "bg-gray-800 text-gray-400 border-gray-700"
-                        }`}
+                          }`}
                       >
                         <span
                           className={`w-1.5 h-1.5 rounded-full ${user.is_active ? "bg-emerald-400" : "bg-gray-500"}`}

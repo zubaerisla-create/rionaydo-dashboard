@@ -1,10 +1,12 @@
-import Auctions from '@/components/DashboardComponent/Auctions/Auctions'
+
+import AuctionsMonitor from '@/components/DashboardComponent/Auctions/Auctions'
 import React from 'react'
+
 
 const page = () => {
   return (
     <div>
-       <Auctions/>
+       <AuctionsMonitor/>
     </div>
   )
 }

@@ -68,27 +68,29 @@ export default function AuditLogsPage() {
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100">
       <div className="max-w-9xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2">
-              <div className="w-5 h-5 rounded-full bg-emerald-600 flex items-center justify-center">
-                <span className="text-xs font-bold text-white">✓</span>
+        <div className="sticky top-0 z-40 bg-gray-950 pt-6 pb-4 flex flex-col gap-6 border-b border-gray-800/50 shadow-md shadow-gray-950">
+          {/* Header */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <div className="w-5 h-5 rounded-full bg-emerald-600 flex items-center justify-center">
+                  <span className="text-xs font-bold text-white">✓</span>
+                </div>
+                <h1 className="text-2xl font-bold">Compliance & Audit Logs</h1>
               </div>
-              <h1 className="text-2xl font-bold">Compliance & Audit Logs</h1>
+              <p className="text-gray-400 text-sm mt-1">
+                Complete audit trail of all administrative actions
+              </p>
             </div>
-            <p className="text-gray-400 text-sm mt-1">
-              Complete audit trail of all administrative actions
-            </p>
-          </div>
 
-          <button 
-            onClick={handleExportPDF}
-            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm transition font-bold shadow-lg shadow-emerald-900/20"
-          >
-            <FileText size={16} />
-            Export PDF
-          </button>
+            <button 
+              onClick={handleExportPDF}
+              className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm transition font-bold shadow-lg shadow-emerald-900/20"
+            >
+              <FileText size={16} />
+              Export PDF
+            </button>
+          </div>
         </div>
 
         {/* Table */}
