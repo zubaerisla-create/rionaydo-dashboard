@@ -262,16 +262,64 @@ export type PaginatedAuctions = {
   results: AuctionListItem[];
 };
 
+export type ChatUser = {
+  id: number;
+  email: string;
+  company?: string;
+  role_kind?: string;
+};
 
+export type ChatConversation = {
+  id: number;
+  updated_at: string;
+  created_at: string;
+  user: ChatUser;
+};
 
+export type PaginatedConversations = {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: ChatConversation[];
+};
 
+export type ChatAttachment = {
+  id?: number;
+  object_key: string;
+  public_url?: string;
+  content_type: string;
+  file_name: string;
+  size_bytes: number;
+};
 
-// ─── API ──────────────────────────────────────────────────────────────────────
+export type ChatMessage = {
+  id: number;
+  conversation_id: number;
+  body: string;
+  message_type: 'text' | 'text_with_attachment' | string;
+  created_at: string;
+  sender: ChatUser;
+  attachments: ChatAttachment[];
+};
+
+export type PaginatedMessages = {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: ChatMessage[];
+};
+
+export type PresignedUrlResponse = {
+  presigned_url: string;
+  object_key: string;
+  public_url: string;
+  content_type: string;
+};// ─── API ──────────────────────────────────────────────────────────────────────
 
 export const adminApi = createApi({
   reducerPath: 'adminApi',
   baseQuery,
-  tagTypes: ['Users', 'User', 'Auctions', 'Auction', 'Bids', 'Admins', 'Plans'],
+  tagTypes: ['Users', 'User', 'Auctions', 'Auction', 'Bids', 'Admins', 'Plans', 'Conversations', 'Messages'],
   endpoints: (builder) => ({
     // ── Users ──────────────────────────────────────────────────────────────
     getUserList: builder.query<PaginatedUsers, { page?: number; search?: string }>({
@@ -538,6 +586,39 @@ export const adminApi = createApi({
       query: () => 'api/admin/auctions/flagged/',
       providesTags: ['Auctions'],
     }),
+
+    // ── Chat ─────────────────────────────────────────────────────────────
+    getConversations: builder.query<PaginatedConversations, void>({
+      query: () => ({
+        url: '/api/admin/chat/conversations/',
+        method: 'GET',
+      }),
+      providesTags: ['Conversations'],
+    }),
+
+    getMessages: builder.query<PaginatedMessages, number>({
+      query: (conversationId) => ({
+        url: `/api/admin/chat/conversations/${conversationId}/messages`,
+        method: 'GET',
+      }),
+      providesTags: (_r, _e, id) => [{ type: 'Messages', id }],
+    }),
+
+    sendMessage: builder.mutation<ChatMessage, { conversationId: number; body: string; attachments?: ChatAttachment[] }>({
+      query: ({ conversationId, body, attachments = [] }) => ({
+        url: `/api/admin/chat/conversations/${conversationId}/messages/send/`,
+        method: 'POST',
+        body: { body, attachments },
+      }),
+      invalidatesTags: (_r, _e, { conversationId }) => [{ type: 'Messages', id: conversationId }, 'Conversations'],
+    }),
+
+    getPresignedUrl: builder.query<PresignedUrlResponse, { content_type: string; file_name: string }>({
+      query: ({ content_type, file_name }) => ({
+        url: `/api/admin/chat/upload/presigned-url/?content_type=${encodeURIComponent(content_type)}&file_name=${encodeURIComponent(file_name)}`,
+        method: 'GET',
+      }),
+    }),
   }),
 });
 
@@ -595,6 +676,10 @@ export const {
   useGetAdminsQuery,
   useCreateAdminMutation,
   useGetFlaggedAuctionsQuery,
+  useGetConversationsQuery,
+  useGetMessagesQuery,
+  useSendMessageMutation,
+  useLazyGetPresignedUrlQuery,
 } = adminApi;
 
 

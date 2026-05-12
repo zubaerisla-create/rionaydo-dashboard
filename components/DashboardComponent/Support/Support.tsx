@@ -17,69 +17,32 @@ import {
   Save,
   Loader2,
 } from "lucide-react";
-import { 
-  useGetSupportContactQuery, 
-  useUpdateSupportContactMutation 
+import {
+  useGetSupportContactQuery,
+  useUpdateSupportContactMutation,
+  useGetConversationsQuery,
+  useGetMessagesQuery,
+  useSendMessageMutation,
+  useLazyGetPresignedUrlQuery,
+  ChatConversation,
+  ChatMessage,
+  ChatAttachment,
 } from "@/lib/adminApi";
-
-type Ticket = {
-  id: string;
-  dealer: string;
-  title: string;
-  priority: "high" | "medium" | "low";
-  status: "open" | "in progress" | "resolved";
-  assigned?: string;
-  lastUpdated: string;
-  messages?: Message[];
-};
-
-type Message = {
-  sender: string;
-  role: "dealer" | "admin";
-  content: string;
-  timestamp: string;
-};
-
-const mockTickets: Ticket[] = [
-  {
-    id: "t1",
-    dealer: "Hans Mueller",
-    title: "Payment processing issue",
-    priority: "high",
-    status: "in progress",
-    assigned: "Super Admin",
-    lastUpdated: "3/5/2026",
-    messages: [
-      {
-        sender: "Hans Mueller",
-        role: "dealer",
-        content: "I am unable to process payment for the recent auction win.",
-        timestamp: "3/5/2026, 2:30:00 PM",
-      },
-      {
-        sender: "Super Admin",
-        role: "admin",
-        content: "Okay, wait for resolve",
-        timestamp: "3/5/2026, 12:53:35 AM",
-      },
-    ],
-  },
-  {
-    id: "t2",
-    dealer: "Pierre Duboils",
-    title: "Account verification question",
-    priority: "medium",
-    status: "in progress",
-    assigned: "Manager Admin",
-    lastUpdated: "3/2/2026",
-    messages: [],
-  },
-];
+import { format } from "date-fns";
 
 export default function SupportMessagingCenter() {
-  const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
+  const [selectedConversation, setSelectedConversation] = useState<ChatConversation | null>(null);
   const [messageInput, setMessageInput] = useState("");
   const [showSettings, setShowSettings] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+
+  // RTK Query Hooks
+  const { data: conversationsData, isLoading: isConversationsLoading } = useGetConversationsQuery();
+  const { data: messagesData, isLoading: isMessagesLoading } = useGetMessagesQuery(selectedConversation?.id as number, {
+    skip: !selectedConversation?.id,
+  });
+  const [sendMessage, { isLoading: isSending }] = useSendMessageMutation();
+  const [getPresignedUrl] = useLazyGetPresignedUrlQuery();
 
   // Support Contact API
   const { data: supportInfo, isLoading: infoLoading } = useGetSupportContactQuery();
@@ -104,6 +67,74 @@ export default function SupportMessagingCenter() {
       alert("Support contact updated successfully!");
     } catch (err) {
       alert("Failed to update support contact.");
+    }
+  };
+
+  const handleSendMessage = async () => {
+    if (!messageInput.trim() || !selectedConversation) return;
+
+    try {
+      await sendMessage({
+        conversationId: selectedConversation.id,
+        body: messageInput,
+        attachments: [],
+      }).unwrap();
+      setMessageInput("");
+    } catch (err) {
+      alert("Failed to send message.");
+    }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !selectedConversation) return;
+
+    setIsUploading(true);
+    try {
+      const { data: presignedData } = await getPresignedUrl({
+        content_type: file.type || "application/octet-stream",
+        file_name: file.name,
+      });
+
+      if (!presignedData) throw new Error("Failed to get upload URL");
+
+      const uploadRes = await fetch(presignedData.presigned_url, {
+        method: "PUT",
+        headers: {
+          "Content-Type": file.type || "application/octet-stream",
+        },
+        body: file,
+      });
+
+      if (!uploadRes.ok) throw new Error("File upload failed");
+
+      const attachment: ChatAttachment = {
+        object_key: presignedData.object_key,
+        file_name: file.name,
+        content_type: file.type || "application/octet-stream",
+        size_bytes: file.size,
+      };
+
+      await sendMessage({
+        conversationId: selectedConversation.id,
+        body: "Sent an attachment",
+        attachments: [attachment],
+      }).unwrap();
+
+    } catch (err) {
+      console.error(err);
+      alert("Failed to upload file and send message.");
+    } finally {
+      setIsUploading(false);
+      e.target.value = '';
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    try {
+      return format(new Date(dateString), "PP p");
+    } catch {
+      return dateString;
     }
   };
 
@@ -141,26 +172,30 @@ export default function SupportMessagingCenter() {
               </div>
 
               <div className="flex-1 overflow-y-auto p-3 space-y-3">
-                {mockTickets.map((ticket) => (
+                {isConversationsLoading ? (
+                  <div className="flex justify-center p-4"><Loader2 className="animate-spin text-gray-500" /></div>
+                ) : conversationsData?.results.map((conversation) => (
                   <button
-                    key={ticket.id}
-                    onClick={() => setSelectedTicket(ticket)}
+                    key={conversation.id}
+                    onClick={() => {
+                      setSelectedConversation(conversation);
+                      setShowSettings(false);
+                    }}
                     className={`w-full text-left p-4 rounded-lg border transition-all ${
-                      selectedTicket?.id === ticket.id
+                      selectedConversation?.id === conversation.id
                         ? "bg-gray-900 border-emerald-500/50 shadow-lg shadow-emerald-500/5"
                         : "bg-gray-900/50 border-gray-800 hover:bg-gray-900 hover:border-gray-700"
                     }`}
                   >
                     <div className="flex justify-between items-start mb-2">
-                      <div className="font-medium">{ticket.dealer}</div>
-                      <PriorityBadge priority={ticket.priority} />
+                      <div className="font-medium text-sm truncate">{conversation.user.email}</div>
+                      {/* Optional badges can go here if the API provides status */}
                     </div>
 
-                    <div className="text-sm text-gray-300 mb-1.5 line-clamp-1">{ticket.title}</div>
+                    <div className="text-sm text-gray-300 mb-1.5 line-clamp-1">Conversation #{conversation.id}</div>
 
                     <div className="flex items-center justify-between text-xs">
-                      <StatusBadge status={ticket.status} />
-                      <div className="text-gray-500">{ticket.lastUpdated}</div>
+                      <div className="text-gray-500">{formatDate(conversation.updated_at)}</div>
                     </div>
                   </button>
                 ))}
@@ -212,53 +247,74 @@ export default function SupportMessagingCenter() {
 
         {/* Right Panel - Conversation View */}
         <div className="hidden md:flex flex-1 flex-col bg-[#0d0d0f]">
-          {selectedTicket && !showSettings ? (
+          {selectedConversation && !showSettings ? (
             <>
               {/* Header */}
               <div className="p-5 border-b border-gray-800 flex items-center justify-between bg-gray-950/50">
                 <div>
-                  <h2 className="font-semibold text-white">{selectedTicket.title}</h2>
+                  <h2 className="font-semibold text-white">Conversation #{selectedConversation.id}</h2>
                   <div className="text-xs text-gray-400 mt-0.5">
-                    {selectedTicket.dealer} • General Support
+                    {selectedConversation.user.email}
                   </div>
                 </div>
 
                 <div className="flex gap-3">
-                  <button className="px-4 py-1.5 bg-blue-950/30 hover:bg-blue-950/50 border border-blue-900/50 text-blue-300 rounded-md text-xs font-medium transition">
-                    Assign to Me
-                  </button>
-                  <button className="px-4 py-1.5 bg-emerald-950/30 hover:bg-emerald-950/50 border border-emerald-900/50 text-emerald-300 rounded-md text-xs font-medium transition flex items-center gap-1.5">
-                    <CheckCircle2 size={14} /> Resolve
-                  </button>
+                  {/* Additional header actions can be placed here */}
                 </div>
               </div>
 
               {/* Messages */}
-              <div className="flex-1 overflow-y-auto p-5 space-y-5">
-                {selectedTicket.messages?.map((msg, i) => (
-                  <div
-                    key={i}
-                    className={`flex ${
-                      msg.role === "admin" ? "justify-end" : "justify-start"
-                    }`}
-                  >
+              <div className="flex-1 overflow-y-auto p-5 space-y-5 flex flex-col-reverse">
+                {/* Assuming results are ordered latest first, otherwise we would need to reverse them here */}
+                {isMessagesLoading ? (
+                  <div className="flex justify-center p-4"><Loader2 className="animate-spin text-gray-500" /></div>
+                ) : messagesData?.results.map((msg) => {
+                  const isAdmin = msg.sender.role_kind === "admin" || msg.sender.role_kind === "super_admin";
+                  return (
                     <div
-                      className={`max-w-[75%] rounded-2xl p-4 ${
-                        msg.role === "admin"
-                          ? "bg-emerald-600 text-white shadow-lg shadow-emerald-600/10"
-                          : "bg-gray-800 border border-gray-700 text-gray-200"
+                      key={msg.id}
+                      className={`flex ${
+                        isAdmin ? "justify-end" : "justify-start"
                       }`}
                     >
-                      <div className={`flex items-center gap-2 mb-2 ${msg.role === "admin" ? "text-emerald-50" : "text-gray-400"}`}>
-                        <span className="text-[10px] font-bold uppercase tracking-wider">
-                          {msg.role === "admin" ? "You" : msg.sender}
-                        </span>
-                        <span className="text-[10px] opacity-60">{msg.timestamp}</span>
+                      <div
+                        className={`max-w-[75%] rounded-2xl p-4 ${
+                          isAdmin
+                            ? "bg-emerald-600 text-white shadow-lg shadow-emerald-600/10"
+                            : "bg-gray-800 border border-gray-700 text-gray-200"
+                        }`}
+                      >
+                        <div className={`flex items-center gap-2 mb-2 ${isAdmin ? "text-emerald-50" : "text-gray-400"}`}>
+                          <span className="text-[10px] font-bold uppercase tracking-wider">
+                            {isAdmin ? "You" : msg.sender.email}
+                          </span>
+                          <span className="text-[10px] opacity-60">{formatDate(msg.created_at)}</span>
+                        </div>
+                        <div className="text-sm leading-relaxed">{msg.body}</div>
+                        
+                        {/* Attachments */}
+                        {msg.attachments && msg.attachments.length > 0 && (
+                          <div className="mt-3 space-y-2">
+                            {msg.attachments.map((att, i) => (
+                              <a 
+                                key={i} 
+                                href={att.public_url} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className={`flex items-center gap-2 p-2 rounded border text-xs ${
+                                  isAdmin ? "border-emerald-500 bg-emerald-700/50 text-white hover:bg-emerald-700" : "border-gray-700 bg-gray-900 hover:bg-gray-800"
+                                } transition`}
+                              >
+                                <Paperclip size={14} />
+                                <span className="truncate max-w-[200px]">{att.file_name}</span>
+                              </a>
+                            ))}
+                          </div>
+                        )}
                       </div>
-                      <div className="text-sm leading-relaxed">{msg.content}</div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
 
               {/* Input Area */}
@@ -268,14 +324,33 @@ export default function SupportMessagingCenter() {
                     type="text"
                     value={messageInput}
                     onChange={(e) => setMessageInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSendMessage();
+                      }
+                    }}
                     placeholder="Type your response..."
-                    className="flex-1 bg-transparent focus:outline-none text-sm text-white"
+                    className="flex-1 bg-transparent focus:outline-none text-sm text-white disabled:opacity-50"
+                    disabled={isSending || isUploading}
                   />
-                  <button className="p-2 hover:bg-gray-800 rounded-lg transition text-gray-500">
-                    <Paperclip size={18} />
-                  </button>
-                  <button className="p-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition shadow-md active:scale-95">
-                    <Send size={18} />
+                  <div className="relative flex items-center justify-center">
+                    <input 
+                      type="file" 
+                      onChange={handleFileUpload} 
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                      disabled={isSending || isUploading}
+                    />
+                    <button className="p-2 hover:bg-gray-800 rounded-lg transition text-gray-500 disabled:opacity-50">
+                      {isUploading ? <Loader2 size={18} className="animate-spin" /> : <Paperclip size={18} />}
+                    </button>
+                  </div>
+                  <button 
+                    onClick={handleSendMessage}
+                    disabled={isSending || isUploading || !messageInput.trim()}
+                    className="p-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition shadow-md active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isSending ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
                   </button>
                 </div>
               </div>
@@ -299,34 +374,4 @@ export default function SupportMessagingCenter() {
   );
 }
 
-function PriorityBadge({ priority }: { priority: Ticket["priority"] }) {
-  const colors = {
-    high: "bg-red-950/50 text-red-400 border-red-900/50",
-    medium: "bg-amber-950/50 text-amber-400 border-amber-900/50",
-    low: "bg-blue-950/50 text-blue-400 border-blue-900/50",
-  };
-
-  return (
-    <span
-      className={`text-[10px] px-2 py-0.5 rounded-full border font-bold uppercase tracking-wider ${colors[priority]}`}
-    >
-      {priority}
-    </span>
-  );
-}
-
-function StatusBadge({ status }: { status: Ticket["status"] }) {
-  const styles = {
-    open: "bg-blue-950/30 text-blue-400",
-    "in progress": "bg-amber-950/30 text-amber-400",
-    resolved: "bg-emerald-950/30 text-emerald-400",
-  };
-
-  return (
-    <span
-      className={`text-[10px] px-2 py-0.5 rounded-md font-bold uppercase tracking-wider ${styles[status]}`}
-    >
-      {status}
-    </span>
-  );
-}
+// Removed unused mock Badge functions

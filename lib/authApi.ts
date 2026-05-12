@@ -2,7 +2,7 @@ import { createApi, fetchBaseQuery, BaseQueryFn, FetchArgs, FetchBaseQueryError 
 
 // Requests go through the Next.js proxy defined in next.config.ts
 // which forwards /api/* to the real backend server-side (no CORS issues)
-// 🛑 URGENT: KEEP baseUrl as '' OR THE DASHBOARD WILL STOP WORKING.
+//  URGENT: KEEP baseUrl as '' OR THE DASHBOARD WILL STOP WORKING.
 const baseUrl = 'https://doleritic-goutily-shila.ngrok-free.dev';
 
 const baseQuery = fetchBaseQuery({
