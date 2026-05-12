@@ -11,7 +11,9 @@ import {
   RefreshCw,
   Clock,
   CheckCircle,
-  Users
+  Users,
+  ChevronLeft,
+  ChevronRight
 } from "lucide-react";
 import { 
   useGetFlaggedAuctionsQuery, 
@@ -132,7 +134,9 @@ function FlagModal({ auctionId, initialData, onClose, onConfirm }: { auctionId: 
 // ── Main Bidding Monitor Page ──────────────────────────────────────────────────
 
 export default function SuspiciousBiddingDetection() {
-  const { data, isLoading, isError, refetch } = useGetFlaggedAuctionsQuery();
+  const [page, setPage] = useState(1);
+  const { data, isLoading, isError, refetch } = useGetFlaggedAuctionsQuery({ page });
+  const totalPages = data ? Math.ceil(data.count / 8) : 1;
   const [selectedAuctionId, setSelectedAuctionId] = useState<number | null>(null);
   const [flaggingAuctionId, setFlaggingAuctionId] = useState<number | null>(null);
   const [flagMutation] = useFlagAuctionMutation();
@@ -151,7 +155,7 @@ export default function SuspiciousBiddingDetection() {
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100">
       <div className="max-w-9xl mx-auto space-y-6">
-        <div className="sticky top-0 z-40 bg-gray-950 pt-6 pb-4 flex flex-col gap-6 border-b border-gray-800/50 shadow-md shadow-gray-950">
+        <div className="sticky -top-10 z-40 bg-gray-950 pt-6 pb-4 flex flex-col gap-6 border-b border-gray-800/50 shadow-md shadow-gray-950">
           {/* Header */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
@@ -178,9 +182,9 @@ export default function SuspiciousBiddingDetection() {
 
         {/* Table Container */}
         <div className="bg-[#111113] border border-gray-800 rounded-2xl overflow-hidden shadow-sm">
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-280px)] min-h-[400px]">
             <table className="w-full text-sm text-left">
-              <thead className="bg-gray-900/50 border-b border-gray-800">
+              <thead className="bg-[#18181b] sticky top-0 z-20 shadow-md">
                 <tr>
                   <th className="px-6 py-5 font-semibold text-gray-400 uppercase tracking-wider text-[10px]">Auction</th>
                   <th className="px-6 py-5 font-semibold text-gray-400 uppercase tracking-wider text-[10px]">Violation Type</th>
@@ -254,6 +258,18 @@ export default function SuspiciousBiddingDetection() {
               </tbody>
             </table>
           </div>
+          
+          {/* Pagination */}
+          {data && totalPages > 1 && (
+            <div className="flex items-center justify-between px-6 py-4 border-t border-gray-800 text-sm text-gray-400">
+              <div>Page {page} of {totalPages} ({data.count} items)</div>
+              <div className="flex items-center gap-1">
+                <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={!data.previous} className="p-1.5 bg-gray-800 rounded-lg hover:bg-gray-700 disabled:opacity-40"><ChevronLeft size={15} /></button>
+                <span className="px-3 py-1 bg-gray-700 rounded-lg">{page}</span>
+                <button onClick={() => setPage(p => p + 1)} disabled={!data.next} className="p-1.5 bg-gray-800 rounded-lg hover:bg-gray-700 disabled:opacity-40"><ChevronRight size={15} /></button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

@@ -326,7 +326,7 @@ export const adminApi = createApi({
     // ── Users ──────────────────────────────────────────────────────────────
     getUserList: builder.query<PaginatedUsers, { page?: number; search?: string; role?: string }>({
       query: ({ page = 1, search = '', role = '' } = {}) => ({
-        url: `/api/admin/user/list/?page=${page}${search ? `&search=${search}` : ''}${role ? `&role=${role}` : ''}`,
+        url: `/api/admin/user/list/?page=${page}&page_size=8${search ? `&search=${search}` : ''}${role ? `&role=${role}` : ''}`,
         method: 'GET',
       }),
       providesTags: ['Users'],
@@ -370,6 +370,7 @@ export const adminApi = createApi({
         method: 'PATCH',
       }),
       invalidatesTags: ['Users', 'User'],
+      // 
     }),
 
     upgradeToDealer: builder.mutation<any, number>({
@@ -383,7 +384,7 @@ export const adminApi = createApi({
     // ── Auctions ───────────────────────────────────────────────────────────
     getAuctionList: builder.query<PaginatedAuctions, { page?: number }>({
       query: ({ page = 1 } = {}) => ({
-        url: `/api/admin/auctions/?page=${page}`,
+        url: `/api/admin/auctions/?page=${page}&page_size=8`,
         method: 'GET',
       }),
       providesTags: ['Auctions'],
@@ -399,7 +400,7 @@ export const adminApi = createApi({
 
     getAuctionBids: builder.query<PaginatedBids, { auctionId: number; page?: number }>({
       query: ({ auctionId, page = 1 }) => ({
-        url: `/api/admin/auctions/${auctionId}/bids/?page=${page}`,
+        url: `/api/admin/auctions/${auctionId}/bids/?page=${page}&page_size=8`,
         method: 'GET',
       }),
       providesTags: (_r, _e, { auctionId }) => [{ type: 'Bids', id: auctionId }],
@@ -478,7 +479,7 @@ export const adminApi = createApi({
     // ── Compliance ────────────────────────────────────────────────────────
     getAuditLogs: builder.query<PaginatedAuditLogs, { page?: number }>({
       query: ({ page = 1 } = {}) => ({
-        url: `/api/admin/compliance/audit-logs/?page=${page}`,
+        url: `/api/admin/compliance/audit-logs/?page=${page}&page_size=8`,
         method: 'GET',
       }),
     }),
@@ -519,7 +520,7 @@ export const adminApi = createApi({
     // ── Subscriptions ─────────────────────────────────────────────────────
     getSubscriptions: builder.query<PaginatedSubscriptions, { page?: number }>({
       query: ({ page = 1 } = {}) => ({
-        url: `/api/admin/subscriptions/?page=${page}`,
+        url: `/api/admin/subscriptions/?page=${page}&page_size=8`,
         method: 'GET',
       }),
     }),
@@ -571,8 +572,8 @@ export const adminApi = createApi({
     }),
 
     // ── Admin Management ────────────────────────────────────────────────────────
-    getAdmins: builder.query<{ count: number; results: AdminAccount[] }, void>({
-      query: () => 'api/admin/list/',
+    getAdmins: builder.query<{ count: number; previous: string | null; next: string | null; results: AdminAccount[] }, { page?: number }>({
+      query: ({ page = 1 } = {}) => `api/admin/list/?page=${page}&page_size=8`,
       providesTags: ['Admins'],
     }),
 
@@ -584,8 +585,8 @@ export const adminApi = createApi({
       }),
       invalidatesTags: ['Admins'],
     }),
-    getFlaggedAuctions: builder.query<{ count: number; results: FlaggedAuction[] }, void>({
-      query: () => 'api/admin/auctions/flagged/',
+    getFlaggedAuctions: builder.query<{ count: number; previous: string | null; next: string | null; results: FlaggedAuction[] }, { page?: number }>({
+      query: ({ page = 1 } = {}) => `api/admin/auctions/flagged/?page=${page}&page_size=8`,
       providesTags: ['Auctions'],
     }),
 

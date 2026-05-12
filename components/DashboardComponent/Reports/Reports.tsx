@@ -20,6 +20,8 @@ import {
   useGetRevenueTrendsQuery, 
   useGetPlanBreakdownQuery 
 } from "@/lib/adminApi";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 ChartJS.register(
   CategoryScale,
@@ -99,6 +101,70 @@ export default function AnalyticsDashboard() {
 
   const isLoading = statsLoading || trendsLoading || revLoading || planLoading;
 
+  const exportToCSV = () => {
+    let csvContent = "data:text/csv;charset=utf-8,";
+    if (reportType === "Revenue Report" || reportType === "Monthly Sales") {
+      csvContent += "Month,Revenue (CHF)\n";
+      revenueTrends?.revenue_trends.forEach(t => {
+        csvContent += `"${t.month_label}",${t.revenue}\n`;
+      });
+    } else if (reportType === "Auction Success Rate") {
+      csvContent += "Month,Auction Volume\n";
+      auctionTrends?.auction_volume.forEach(t => {
+        csvContent += `"${t.month_label}",${t.created_count}\n`;
+      });
+    } else {
+      csvContent += "Plan,Subscribers,Percentage\n";
+      planBreakdown?.plans.forEach(p => {
+        csvContent += `"${p.plan_name}",${p.total_subscribers},"${p.percentage}%"\n`;
+      });
+    }
+    
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `${reportType.replace(/\s+/g, "_").toLowerCase()}_report.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const exportToPDF = () => {
+    const doc = new jsPDF();
+    doc.setFontSize(18);
+    doc.setTextColor(40);
+    doc.text(`${reportType}`, 14, 22);
+    
+    doc.setFontSize(10);
+    doc.setTextColor(100);
+    doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 30);
+
+    let head = [];
+    let body = [];
+
+    if (reportType === "Revenue Report" || reportType === "Monthly Sales") {
+      head = [["Month", "Revenue (CHF)"]];
+      body = revenueTrends?.revenue_trends.map(t => [t.month_label, parseFloat(t.revenue).toLocaleString("de-CH", { minimumFractionDigits: 2 })]) || [];
+    } else if (reportType === "Auction Success Rate") {
+      head = [["Month", "Auction Volume"]];
+      body = auctionTrends?.auction_volume.map(t => [t.month_label, t.created_count.toString()]) || [];
+    } else {
+      head = [["Plan", "Subscribers", "Percentage"]];
+      body = planBreakdown?.plans.map(p => [p.plan_name, p.total_subscribers.toString(), `${p.percentage}%`]) || [];
+    }
+
+    autoTable(doc, {
+      startY: 40,
+      head: head,
+      body: body,
+      theme: 'striped',
+      headStyles: { fillColor: [16, 185, 129] },
+      styles: { fontSize: 10 }
+    });
+
+    doc.save(`${reportType.replace(/\s+/g, "_").toLowerCase()}_report.pdf`);
+  };
+
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100">
       <div className="max-w-9xl mx-auto space-y-8">
@@ -129,10 +195,10 @@ export default function AnalyticsDashboard() {
           </div>
 
           <div className="flex gap-3">
-            <button className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg text-sm transition font-bold uppercase tracking-widest text-[10px]">
+            <button onClick={exportToCSV} className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg text-sm transition font-bold uppercase tracking-widest text-[10px]">
               <Download size={14} /> Export CSV
             </button>
-            <button className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg text-sm transition font-bold uppercase tracking-widest text-[10px]">
+            <button onClick={exportToPDF} className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg text-sm transition font-bold uppercase tracking-widest text-[10px]">
               <FileBarChart size={14} /> Export PDF
             </button>
           </div>

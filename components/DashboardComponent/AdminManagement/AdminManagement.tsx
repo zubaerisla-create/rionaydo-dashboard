@@ -11,7 +11,9 @@ import {
   X,
   AlertCircle,
   Mail,
-  Lock
+  Lock,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react'
 import { useGetAdminsQuery, useCreateAdminMutation, AdminAccount } from '@/lib/adminApi'
 
@@ -25,7 +27,9 @@ function fmtDate(date: string) {
 }
 
 export default function AdminManagement() {
-  const { data: admins, isLoading, isError } = useGetAdminsQuery();
+  const [page, setPage] = useState(1);
+  const { data: admins, isLoading, isError } = useGetAdminsQuery({ page });
+  const totalPages = admins ? Math.ceil(admins.count / 8) : 1;
   const [createAdmin, { isLoading: isCreating }] = useCreateAdminMutation();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [formData, setFormData] = useState({
@@ -63,7 +67,7 @@ export default function AdminManagement() {
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100">
       <div className="mx-auto max-w-9xl space-y-8">
-        <div className="sticky top-0 z-40 bg-gray-950 pt-6 pb-4 flex flex-col gap-8 border-b border-gray-800/50 shadow-md shadow-gray-950">
+        <div className="sticky -top-10 z-40 bg-gray-950 pt-6 pb-4 flex flex-col gap-8 border-b border-gray-800/50 shadow-md shadow-gray-950">
           {/* Header */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
@@ -107,9 +111,9 @@ export default function AdminManagement() {
 
         {/* Table Section */}
         <div className="bg-[#111113] border border-gray-800 rounded-2xl overflow-hidden shadow-sm">
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-280px)] min-h-[400px]">
             <table className="w-full text-sm text-left">
-              <thead className="bg-gray-900/50 border-b border-gray-800">
+              <thead className="bg-[#18181b] sticky top-0 z-20 shadow-md">
                 <tr>
                   <th className="px-6 py-5 font-semibold text-gray-400 uppercase tracking-wider text-[10px]">Email Address</th>
                   <th className="px-6 py-5 font-semibold text-gray-400 uppercase tracking-wider text-[10px]">Access Level</th>
@@ -161,6 +165,18 @@ export default function AdminManagement() {
               </tbody>
             </table>
           </div>
+          
+          {/* Pagination */}
+          {admins && totalPages > 1 && (
+            <div className="flex items-center justify-between px-6 py-4 border-t border-gray-800 text-sm text-gray-400">
+              <div>Page {page} of {totalPages} ({admins.count} items)</div>
+              <div className="flex items-center gap-1">
+                <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={!admins.previous} className="p-1.5 bg-gray-800 rounded-lg hover:bg-gray-700 disabled:opacity-40"><ChevronLeft size={15} /></button>
+                <span className="px-3 py-1 bg-gray-700 rounded-lg">{page}</span>
+                <button onClick={() => setPage(p => p + 1)} disabled={!admins.next} className="p-1.5 bg-gray-800 rounded-lg hover:bg-gray-700 disabled:opacity-40"><ChevronRight size={15} /></button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -260,4 +276,4 @@ function StatCard({
       </div>
     </div>
   )
-}
+}

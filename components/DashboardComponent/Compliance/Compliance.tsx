@@ -27,7 +27,7 @@ export default function AuditLogsPage() {
   const [page, setPage] = useState(1);
   const { data, isLoading, isError } = useGetAuditLogsQuery({ page });
 
-  const totalPages = data ? Math.ceil(data.count / 10) : 1;
+  const totalPages = data ? Math.ceil(data.count / 8) : 1;
 
   const handleExportPDF = () => {
     if (!data?.results) return;
@@ -68,7 +68,7 @@ export default function AuditLogsPage() {
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100">
       <div className="max-w-9xl mx-auto space-y-6">
-        <div className="sticky top-0 z-40 bg-gray-950 pt-6 pb-4 flex flex-col gap-6 border-b border-gray-800/50 shadow-md shadow-gray-950">
+        <div className="sticky -top-10 z-40 bg-gray-950 pt-6 pb-4 flex flex-col gap-6 border-b border-gray-800/50 shadow-md shadow-gray-950">
           {/* Header */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
@@ -95,9 +95,9 @@ export default function AuditLogsPage() {
 
         {/* Table */}
         <div className="bg-[#111113] border border-gray-800 rounded-xl overflow-hidden shadow-sm">
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-280px)] min-h-[400px]">
             <table className="w-full text-sm text-left">
-              <thead className="bg-gray-800/60">
+              <thead className="bg-[#18181b] sticky top-0 z-20 shadow-md border-b border-gray-800">
                 <tr>
                   <th className="px-6 py-4 font-medium text-gray-400 text-[10px] uppercase tracking-wider">Timestamp</th>
                   <th className="px-6 py-4 font-medium text-gray-400 text-[10px] uppercase tracking-wider">Admin</th>
@@ -193,4 +193,4 @@ function StatBox({ label, value, color }: { label: string; value: number; color?
     </div>
   );
 }
-
+

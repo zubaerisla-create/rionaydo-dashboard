@@ -88,9 +88,9 @@ function FlagModal({ auctionId, onClose, onConfirm }: { auctionId: number; onClo
         <div className="p-6 space-y-5">
           <div className="space-y-1.5">
             <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Behaviour Type</label>
-            <select 
+            <select
               value={formData.behaviour_type}
-              onChange={(e) => setFormData({...formData, behaviour_type: e.target.value})}
+              onChange={(e) => setFormData({ ...formData, behaviour_type: e.target.value })}
               className="w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-purple-500/50 transition-colors"
             >
               {FLAG_BEHAVIOURS.map(b => <option key={b.value} value={b.value}>{b.label}</option>)}
@@ -103,12 +103,11 @@ function FlagModal({ auctionId, onClose, onConfirm }: { auctionId: number; onClo
               {FLAG_SEVERITIES.map(s => (
                 <button
                   key={s.value}
-                  onClick={() => setFormData({...formData, severity: s.value})}
-                  className={`flex-1 py-2 rounded-lg text-xs font-bold uppercase tracking-wider border transition-all ${
-                    formData.severity === s.value 
-                      ? "bg-purple-900/40 border-purple-500 text-purple-300 shadow-lg shadow-purple-900/20" 
+                  onClick={() => setFormData({ ...formData, severity: s.value })}
+                  className={`flex-1 py-2 rounded-lg text-xs font-bold uppercase tracking-wider border transition-all ${formData.severity === s.value
+                      ? "bg-purple-900/40 border-purple-500 text-purple-300 shadow-lg shadow-purple-900/20"
                       : "bg-gray-950 border-gray-800 text-gray-500 hover:border-gray-700"
-                  }`}
+                    }`}
                 >
                   {s.label}
                 </button>
@@ -122,7 +121,7 @@ function FlagModal({ auctionId, onClose, onConfirm }: { auctionId: number; onClo
               required
               rows={3}
               value={formData.description}
-              onChange={(e) => setFormData({...formData, description: e.target.value})}
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               placeholder="Provide details about why this auction is being flagged..."
               className="w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-purple-500/50 transition-colors resize-none"
             />
@@ -147,7 +146,7 @@ function FlagModal({ auctionId, onClose, onConfirm }: { auctionId: number; onClo
 function BidHistory({ auctionId }: { auctionId: number }) {
   const [bidPage, setBidPage] = useState(1);
   const { data, isLoading, isError } = useGetAuctionBidsQuery({ auctionId, page: bidPage });
-  const totalPages = data ? Math.ceil(data.count / 20) : 1;
+  const totalPages = data ? Math.ceil(data.count / 8) : 1;
 
   if (isLoading) return <div className="flex justify-center py-8"><Loader2 size={20} className="text-emerald-400 animate-spin" /></div>;
   if (isError) return <div className="text-red-400 text-sm py-4 flex items-center gap-2"><AlertCircle size={16} /> Failed to load bids.</div>;
@@ -383,12 +382,12 @@ export default function AuctionsMonitor() {
   const [page, setPage] = useState(1);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const { data, isLoading, isError, refetch } = useGetAuctionListQuery({ page });
-  const totalPages = data ? Math.ceil(data.count / 10) : 1;
+  const totalPages = data ? Math.ceil(data.count / 8) : 1;
 
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100">
       <div className="max-w-9xl mx-auto space-y-6 relative">
-        <div className="sticky top-0 z-40 bg-gray-950 pt-6 pb-4 flex flex-col gap-6 border-b border-gray-800/50 shadow-md shadow-gray-950">
+        <div className="sticky -top-10 z-40 bg-gray-950 pt-6 pb-4 flex flex-col gap-6 border-b border-gray-800/50 shadow-md shadow-gray-950">
           {/* Header */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
@@ -419,19 +418,19 @@ export default function AuctionsMonitor() {
         </div>
 
         {/* Table */}
-        <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
-          <div className="overflow-x-auto">
+        <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden shadow-sm">
+          <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-280px)] min-h-[400px]">
             <table className="w-full text-sm text-left">
-              <thead className="bg-gray-800/60">
+              <thead className="bg-gray-800 sticky top-0 z-20 shadow-md">
                 <tr>
-                  <th className="px-6 py-4 font-medium">Vehicle</th>
-                  <th className="px-6 py-4 font-medium">Seller</th>
-                  <th className="px-6 py-4 font-medium">Highest Bid</th>
-                  <th className="px-6 py-4 font-medium">Reserve</th>
-                  <th className="px-6 py-4 font-medium text-center">Bidders</th>
-                  <th className="px-6 py-4 font-medium">Status</th>
-                  <th className="px-6 py-4 font-medium">Ends At</th>
-                  <th className="px-6 py-4 font-medium text-right">Actions</th>
+                  <th className="px-6 py-4 font-medium text-gray-300">Vehicle</th>
+                  <th className="px-6 py-4 font-medium text-gray-300">Seller</th>
+                  <th className="px-6 py-4 font-medium text-gray-300">Highest Bid</th>
+                  <th className="px-6 py-4 font-medium text-gray-300">Reserve</th>
+                  <th className="px-6 py-4 font-medium text-gray-300 text-center">Bidders</th>
+                  <th className="px-6 py-4 font-medium text-gray-300">Status</th>
+                  <th className="px-6 py-4 font-medium text-gray-300">Ends At</th>
+                  <th className="px-6 py-4 font-medium text-gray-300 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-800">
