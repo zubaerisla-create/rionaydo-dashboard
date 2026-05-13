@@ -159,12 +159,7 @@ export default function SupportMessagingCenter() {
                 Dealer tickets and live chat
               </p>
             </div>
-            <button 
-              onClick={() => setShowSettings(!showSettings)}
-              className={`p-2 rounded-lg transition ${showSettings ? "bg-emerald-600 text-white" : "bg-gray-800 text-gray-400 hover:bg-gray-700"}`}
-            >
-              <Settings size={18} />
-            </button>
+     
           </div>
 
           {!showSettings ? (
@@ -183,7 +178,15 @@ export default function SupportMessagingCenter() {
               <div className="flex-1 overflow-y-auto p-3 space-y-3">
                 {isConversationsLoading ? (
                   <div className="flex justify-center p-4"><Loader2 className="animate-spin text-gray-500" /></div>
-                ) : conversationsData?.results.map((conversation) => {
+                ) : [...(conversationsData?.results || [])]
+                    .sort((a, b) => {
+                      const aHasNew = a.has_new_message && !seenConversations.has(a.id);
+                      const bHasNew = b.has_new_message && !seenConversations.has(b.id);
+                      if (aHasNew && !bHasNew) return -1;
+                      if (!aHasNew && bHasNew) return 1;
+                      return 0;
+                    })
+                    .map((conversation) => {
                   const hasNew = conversation.has_new_message && !seenConversations.has(conversation.id);
                   return (
                   <button
@@ -393,4 +396,4 @@ export default function SupportMessagingCenter() {
   );
 }
 
-// Removed unused mock Badge functions
+// Removed unused mock Badge functions

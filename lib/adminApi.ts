@@ -497,6 +497,7 @@ export const adminApi = createApi({
       query: (body) => ({
         url: '/api/admin/me/update/',
         method: 'PATCH',
+        body,
       }),
       invalidatesTags: ['User'],
     }),

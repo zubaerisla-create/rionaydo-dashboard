@@ -7,9 +7,7 @@ const baseUrl = 'https://doleritic-goutily-shila.ngrok-free.dev';
 
 const baseQuery = fetchBaseQuery({
   baseUrl,
-  prepareHeaders: (headers, { getState }) => {
-    const access = (getState() as any).auth.access;
-    if (access) headers.set('Authorization', `Bearer ${access}`);
+  prepareHeaders: (headers) => {
     headers.set('Content-Type', 'application/json');
     headers.set('ngrok-skip-browser-warning', 'true');
     return headers;

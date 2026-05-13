@@ -4,13 +4,43 @@
 import { useState } from 'react'
 import Image from 'next/image'
 import logo from "../../../../../public/logo.png"
-import Link from 'next/link'
+import { useResetPasswordResetMutation } from '@/lib/authApi'
+import { useRouter } from 'next/navigation'
+import { Loader2 } from 'lucide-react'
 
 export default function ResetPasswordPage() {
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+  const [resetPassword, { isLoading }] = useResetPasswordResetMutation()
+  const router = useRouter()
+  const [errorMsg, setErrorMsg] = useState('')
 
   const passwordsMatch = newPassword === confirmPassword && newPassword.length > 0
+
+  const handleSubmit = async () => {
+    const email = sessionStorage.getItem('reset_email')
+    const token = sessionStorage.getItem('reset_token')
+
+    if (!email || !token) {
+      setErrorMsg('Session expired. Please start over.')
+      return
+    }
+
+    try {
+      await resetPassword({
+        email,
+        new_password: newPassword,
+        password_reset_token: token
+      }).unwrap()
+      
+      alert('Password reset successful! You can now log in.')
+      sessionStorage.removeItem('reset_email')
+      sessionStorage.removeItem('reset_token')
+      router.push('/login')
+    } catch (err: any) {
+      setErrorMsg(err?.data?.message || 'Failed to reset password. Please try again.')
+    }
+  }
 
   return (
     <div className="min-h-screen bg-gray-950 flex flex-col items-center justify-center p-6">
@@ -93,25 +123,24 @@ export default function ResetPasswordPage() {
               )}
             </div>
 
-        
+            {errorMsg && <p className="text-red-500 text-xs">{errorMsg}</p>}
 
             {/* Submit Button */}
-  <Link href="/login" >
-  
             <button
               type="button"
-              disabled={!passwordsMatch || !newPassword}
+              onClick={handleSubmit}
+              disabled={!passwordsMatch || !newPassword || isLoading}
               className={`
                 w-full py-3.5 rounded-lg font-medium transition-all duration-150
-                shadow-lg shadow-emerald-950/40
-                ${passwordsMatch && newPassword
+                shadow-lg shadow-emerald-950/40 flex items-center justify-center gap-2
+                ${passwordsMatch && newPassword && !isLoading
                   ? 'bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white cursor-pointer'
                   : 'bg-emerald-800/50 text-gray-400 cursor-not-allowed'}
               `}
             >
-              Update Password
+              {isLoading && <Loader2 className="animate-spin" size={18} />}
+              {isLoading ? 'Updating...' : 'Update Password'}
             </button>
-  </Link>
 
           </div>
         </div>

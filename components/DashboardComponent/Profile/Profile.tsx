@@ -12,7 +12,7 @@ import {
   Loader2,
   AlertCircle,
 } from 'lucide-react';
-import { useGetMeQuery } from '@/lib/adminApi';
+import { useGetMeQuery, useUpdateMeMutation } from '@/lib/adminApi';
 
 function fmtDate(date: string) {
   if (!date) return 'N/A';
@@ -24,9 +24,29 @@ function fmtDate(date: string) {
 
 export default function ProfileSettings() {
   const { data: profile, isLoading, isError } = useGetMeQuery();
+  const [updateMe, { isLoading: isUpdating }] = useUpdateMeMutation();
+  
+  const [fullName, setFullName] = useState('');
   const [currentPw, setCurrentPw] = useState('');
   const [newPw, setNewPw] = useState('');
   const [confirmPw, setConfirmPw] = useState('');
+
+  // Sync fullName with profile data when it loads
+  useState(() => {
+    if (profile?.full_name) {
+      setFullName(profile.full_name);
+    }
+  });
+
+  const handleUpdateProfile = async () => {
+    try {
+      await updateMe({ full_name: fullName }).unwrap();
+      alert('Profile updated successfully!');
+    } catch (err) {
+      alert('Failed to update profile.');
+    }
+  };
+
 
   if (isLoading) {
     return (
@@ -57,9 +77,7 @@ export default function ProfileSettings() {
           </p>
 
           <div className="flex items-start gap-5 mb-8">
-            <div className="w-16 h-16 rounded-full bg-emerald-600 flex items-center justify-center text-2xl font-bold text-white shadow-lg shrink-0">
-              {profile.email.charAt(0).toUpperCase()}
-            </div>
+            
 
             <div className="pt-1">
               <div className="flex items-center gap-2.5 mb-1.5">
@@ -76,10 +94,20 @@ export default function ProfileSettings() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
-            <Field label="Full Name" icon={User} value={profile.full_name || "Not set"} />
+            <Input label="Full Name" value={fullName || profile.full_name || ''} onChange={setFullName} placeholder="Enter your full name" />
             <Field label="Email Address" icon={Mail} value={profile.email} />
             <Field label="Role" icon={Shield} value={profile.role.replace('_', ' ')} capitalize />
             <Field label="Account Created" icon={CalendarDays} value={fmtDate(profile.created_at)} />
+          </div>
+
+          <div className="flex justify-end mt-6">
+            <button 
+              onClick={handleUpdateProfile}
+              disabled={isUpdating}
+              className="px-7 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 rounded-lg font-bold text-white transition-all shadow-md active:scale-95 disabled:opacity-50"
+            >
+              {isUpdating ? 'Saving...' : 'Save Profile'}
+            </button>
           </div>
         </div>
 
@@ -114,18 +142,7 @@ export default function ProfileSettings() {
             </div>
           </div>
 
-          <div className="pt-5 border-t border-gray-800">
-            <h3 className="text-base font-medium flex items-center gap-2 mb-3 text-gray-200">
-              <Shield size={16} />
-              Two-Factor Authentication
-            </h3>
-            <p className="text-sm text-gray-400 mb-4">
-              Add an extra layer of security to your account
-            </p>
-            <button className="px-5 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg text-sm font-medium transition shadow-sm">
-              Enable 2FA
-            </button>
-          </div>
+        
         </div>
       </div>
     </div>
@@ -161,11 +178,13 @@ function Input({
   type = 'text',
   value,
   onChange,
+  placeholder,
 }: {
   label: string;
   type?: string;
   value: string;
   onChange: (v: string) => void;
+  placeholder?: string;
 }) {
   return (
     <div>
@@ -174,6 +193,7 @@ function Input({
         type={type}
         value={value}
         onChange={e => onChange(e.target.value)}
+        placeholder={placeholder}
         className="
           w-full bg-gray-900 border border-gray-800 rounded-lg
           px-4 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-500/50
@@ -182,4 +202,4 @@ function Input({
       />
     </div>
   );
-}
+}

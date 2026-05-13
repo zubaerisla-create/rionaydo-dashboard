@@ -4,11 +4,17 @@
 import { useState, useRef, useEffect } from 'react'
 import Image from 'next/image'
 import logo from "../../../../public/logo.png"
+import { useResetPasswordVerifyMutation } from '@/lib/authApi'
+import { useRouter } from 'next/navigation'
+import { Loader2 } from 'lucide-react'
 import Link from 'next/link'
 
 export default function OtpVerificationPage() {
   const [otp, setOtp] = useState(['', '', '', '', '', ''])
   const inputRefs = useRef<(HTMLInputElement | null)[]>([])
+  const [verifyOtp, { isLoading }] = useResetPasswordVerifyMutation()
+  const router = useRouter()
+  const [errorMsg, setErrorMsg] = useState('')
 
   const handleChange = (index: number, value: string) => {
     if (!/^\d*$/.test(value)) return // only allow digits
@@ -37,6 +43,24 @@ export default function OtpVerificationPage() {
     const digits = pasted.split('')
     setOtp(digits)
     inputRefs.current[5]?.focus() // focus last box
+  }
+
+  const handleSubmit = async () => {
+    const code = otp.join('')
+    const email = sessionStorage.getItem('reset_email')
+    if (!email) {
+      setErrorMsg('Session expired. Please try again.')
+      return
+    }
+
+    try {
+      const res = await verifyOtp({ email, code }).unwrap()
+      // Store token for the next step
+      sessionStorage.setItem('reset_token', res.password_reset_token || code) 
+      router.push('/login/forgot-email/verify-otp/new-password')
+    } catch (err: any) {
+      setErrorMsg(err?.data?.message || 'Invalid code. Please try again.')
+    }
   }
 
   const isComplete = otp.every(digit => digit !== '')
@@ -103,23 +127,24 @@ export default function OtpVerificationPage() {
                 ))}
               </div>
 
+              {errorMsg && <p className="text-red-500 text-xs">{errorMsg}</p>}
+
               {/* Submit Button */}
-             <Link href="/login/forgot-email/verify-otp/new-password">
-             
               <button
                 type="button"
-                disabled={!isComplete}
+                onClick={handleSubmit}
+                disabled={!isComplete || isLoading}
                 className={`
                   w-full py-3.5 rounded-lg font-medium transition-all duration-150
-                  shadow-lg shadow-emerald-950/40
-                  ${isComplete 
+                  shadow-lg shadow-emerald-950/40 flex items-center justify-center gap-2
+                  ${isComplete && !isLoading
                     ? 'bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white cursor-pointer' 
                     : 'bg-emerald-800/50 text-gray-400 cursor-not-allowed'}
                 `}
               >
-                Submit
+                {isLoading && <Loader2 className="animate-spin" size={18} />}
+                {isLoading ? 'Verifying...' : 'Submit'}
               </button>
-             </Link>
             </div>
 
             {/* Resend */}

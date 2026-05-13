@@ -487,7 +487,7 @@ export default function UserManagement() {
   const [roleFilter, setRoleFilter] = useState("");
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
 
-  const { data, isLoading, isError, refetch } = useGetUserListQuery({
+  const { data, isLoading, isError, refetch, isFetching } = useGetUserListQuery({
     page,
     search: debouncedSearch,
     role: roleFilter,
@@ -546,10 +546,11 @@ export default function UserManagement() {
               </div>
               <button
                 onClick={() => refetch()}
-                className="p-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg transition"
+                disabled={isFetching}
+                className="p-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg transition disabled:opacity-50"
                 title="Refresh"
               >
-                <RefreshCw size={15} className="text-gray-400" />
+                <RefreshCw size={15} className={`text-gray-400 ${isFetching ? 'animate-spin' : ''}`} />
               </button>
             </div>
           </div>

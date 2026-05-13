@@ -135,7 +135,7 @@ function FlagModal({ auctionId, initialData, onClose, onConfirm }: { auctionId: 
 
 export default function SuspiciousBiddingDetection() {
   const [page, setPage] = useState(1);
-  const { data, isLoading, isError, refetch } = useGetFlaggedAuctionsQuery({ page });
+  const { data, isLoading, isError, refetch, isFetching } = useGetFlaggedAuctionsQuery({ page });
   const totalPages = data ? Math.ceil(data.count / 8) : 1;
   const [selectedAuctionId, setSelectedAuctionId] = useState<number | null>(null);
   const [flaggingAuctionId, setFlaggingAuctionId] = useState<number | null>(null);
@@ -167,8 +167,13 @@ export default function SuspiciousBiddingDetection() {
                 Review and manage flagged auctions with unusual behavior
               </p>
             </div>
-            <button onClick={() => refetch()} className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg text-sm transition">
-              <RefreshCw size={14} className="text-gray-400" /> Refresh
+            <button 
+              onClick={() => refetch()} 
+              disabled={isFetching}
+              className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg text-sm transition disabled:opacity-50"
+            >
+              <RefreshCw size={14} className={`text-gray-400 ${isFetching ? 'animate-spin' : ''}`} /> 
+              {isFetching ? 'Refreshing...' : 'Refresh'}
             </button>
           </div>
 

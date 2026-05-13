@@ -2,11 +2,15 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
+import { useDispatch } from 'react-redux';
+import { logout } from '@/lib/authSlice';
 import {
   Menu, X, Home, Users, Settings, FileText, BarChart3,
-  LogOut, Gavel, TrendingUp, Shield, HeadphonesIcon, Briefcase, User, Bell
+  LogOut, Gavel, TrendingUp, Shield, HeadphonesIcon, Briefcase, User, Bell,
+  Loader2
 } from 'lucide-react';
+import { useGetMeQuery } from '@/lib/adminApi';
 
 const sidebarItems = [
   { name: 'Overview', href: '/dashboard', icon: Home },
@@ -24,6 +28,13 @@ const sidebarItems = [
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const pathname = usePathname();
+  const router = useRouter();
+  const dispatch = useDispatch();
+  const { data: profile, isLoading } = useGetMeQuery();
+
+  const userInitial = profile?.full_name ? profile.full_name.charAt(0).toUpperCase() : (profile?.email ? profile.email.charAt(0).toUpperCase() : 'A');
+  const userName = profile?.full_name || (profile?.email ? profile.email.split('@')[0] : 'Admin');
+  const userRole = profile?.role ? profile.role.replace('_', ' ') : 'Administrator';
 
   return (
     <>
@@ -489,18 +500,24 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           {/* Footer / Profile */}
           <div className="sidebar-footer">
             <Link href="/dashboard/profile" className="profile-card" onClick={() => setSidebarOpen(false)}>
-              <div className="profile-avatar">ZU</div>
+              <div className="profile-avatar">{userInitial}</div>
               <div className="profile-info">
-                <div className="profile-name">Zubaer Islam</div>
-                <div className="profile-role">Super Admin</div>
+                <div className="profile-name">{userName}</div>
+                <div className="profile-role capitalize">{userRole}</div>
               </div>
               <User size={14} className="profile-chevron" />
             </Link>
 
-            <Link href="/login" className="logout-btn">
+            <button 
+              onClick={() => {
+                dispatch(logout());
+                router.push('/login');
+              }}
+              className="logout-btn"
+            >
               <LogOut size={14} />
               Sign out
-            </Link>
+            </button>
 
             <div className="sidebar-version">v2.0.1</div>
           </div>
@@ -514,14 +531,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </button>
 
             <div className="topbar-welcome">
-              <p>Welcome back, Zubaer</p>
-              <p>Super Admin · {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}</p>
+              <p>Welcome back, {userName}</p>
+              <p className="capitalize">{userRole} · {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}</p>
             </div>
 
             <div className="topbar-right">
           
-              <span className="topbar-email">zubaerislam703@gmail.com</span>
-              <div className="topbar-avatar">ZA</div>
+              <span className="topbar-email">{profile?.email}</span>
+              <div className="topbar-avatar">{userInitial}</div>
             </div>
           </header>
 
