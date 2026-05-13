@@ -253,7 +253,7 @@ export default function Dashboard() {
         </div>
 
         {/* Growth banner */}
-        <div className="bg-gradient-to-r from-emerald-950/60 via-teal-950/40 to-emerald-950/60 rounded-xl border border-emerald-800/30 p-5 md:p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+        {/* <div className="bg-gradient-to-r from-emerald-950/60 via-teal-950/40 to-emerald-950/60 rounded-xl border border-emerald-800/30 p-5 md:p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div>
             <p className="text-sm text-emerald-300/90">Current Performance</p>
             <p className="text-3xl font-bold text-emerald-400 tracking-tight">Active Growth</p>
@@ -264,7 +264,7 @@ export default function Dashboard() {
           <div className="text-right">
             <p className="text-sm text-emerald-300/90">Monitor analytics in real-time</p>
           </div>
-        </div>
+        </div> */}
       </div>
     </div>
   );

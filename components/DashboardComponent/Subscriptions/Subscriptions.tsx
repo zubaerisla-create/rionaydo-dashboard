@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { 
   CheckCircle2, 
   CreditCard, 
@@ -13,7 +13,8 @@ import {
   FileText,
   ShieldCheck,
   Zap,
-  ArrowRight
+  ArrowRight,
+  Search
 } from "lucide-react";
 import { 
   useGetSubscriptionsQuery, 
@@ -22,6 +23,7 @@ import {
   useChangeUserPlanMutation,
   useRefundSubscriptionMutation,
   useGetUserSubscriptionQuery,
+  ChangePlanResponse,
 } from "@/lib/adminApi";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -37,10 +39,11 @@ function fmtDate(date: string) {
 
 export default function SubscriptionManagement() {
   const [page, setPage] = useState(1);
+  const [search, setSearch] = useState("");
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
   
-  const { data, isLoading, isError } = useGetSubscriptionsQuery({ page });
+  const { data, isLoading, isError } = useGetSubscriptionsQuery({ page, search });
   const [getSubscriptions] = useLazyGetSubscriptionsQuery();
   const { data: plans } = useGetPlansQuery();
 
@@ -52,12 +55,12 @@ export default function SubscriptionManagement() {
     setIsExportingPdf(true);
     try {
       const pageSize = 100;
-      const firstPage = await getSubscriptions({ page: 1, pageSize }).unwrap();
+      const firstPage = await getSubscriptions({ page: 1, pageSize, search }).unwrap();
       const totalExportPages = Math.max(1, Math.ceil(firstPage.count / pageSize));
       const allSubscriptions = [...firstPage.results];
 
       for (let exportPage = 2; exportPage <= totalExportPages; exportPage += 1) {
-        const pageData = await getSubscriptions({ page: exportPage, pageSize }).unwrap();
+        const pageData = await getSubscriptions({ page: exportPage, pageSize, search }).unwrap();
         allSubscriptions.push(...pageData.results);
       }
 
@@ -109,18 +112,36 @@ export default function SubscriptionManagement() {
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
               <h1 className="text-2xl font-bold tracking-tight">Subscription Management</h1>
-              <p className="text-gray-400 text-sm mt-1">
+              <p className="text-gray-400 text-sm mt-1.5">
                 Monitor and manage dealer subscriptions and recurring billing
               </p>
             </div>
-            <button 
-              onClick={handleExportPDF}
-              disabled={isExportingPdf}
-              className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 disabled:cursor-not-allowed text-white rounded-lg text-sm transition font-bold shadow-lg shadow-emerald-900/20"
-            >
-              {isExportingPdf ? <Loader2 size={16} className="animate-spin" /> : <FileText size={16} />}
-              {isExportingPdf ? "Exporting..." : "Export PDF"}
-            </button>
+            
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <input 
+                  type="text" 
+                  value={search}
+                  onChange={(e) => {
+                    setSearch(e.target.value);
+                    setPage(1);
+                  }}
+                  placeholder="Search dealer email..."
+                  className="bg-gray-900 border border-gray-800 rounded-lg pl-4 pr-10 py-2 text-sm text-white focus:outline-none focus:border-emerald-500/50 transition-colors w-64"
+                />
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">
+                 <Search size={14} />
+                </div>
+              </div>
+              <button 
+                onClick={handleExportPDF}
+                disabled={isExportingPdf}
+                className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 disabled:cursor-not-allowed text-white rounded-lg text-sm transition font-bold shadow-lg shadow-emerald-900/20"
+              >
+                {isExportingPdf ? <Loader2 size={16} className="animate-spin" /> : <FileText size={16} />}
+                {isExportingPdf ? "Exporting..." : "Export PDF"}
+              </button>
+            </div>
           </div>
 
           {/* Stats Strip */}
@@ -264,24 +285,72 @@ function ManageModal({ userId, onClose, plans }: { userId: number; onClose: () =
   const [changePlan, { isLoading: isChanging }] = useChangeUserPlanMutation();
   const [refund, { isLoading: isRefunding }] = useRefundSubscriptionMutation();
   const [selectedPlan, setSelectedPlan] = useState("");
+  const [changeResult, setChangeResult] = useState<ChangePlanResponse | null>(null);
+  const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
+  const [confirmRefundInvoice, setConfirmRefundInvoice] = useState<string | null>(null);
+  const [refundReason, setRefundReason] = useState("");
+
+  const showToast = (msg: string, ok = true) => {
+    setToast({ msg, ok });
+    setTimeout(() => setToast(null), 3000);
+  };
+
+  // Persistence logic for scheduled changes
+  useEffect(() => {
+    const cacheKey = `pending_plan_${userId}`;
+    
+    // 1. Try to load from localStorage on mount
+    const cached = localStorage.getItem(cacheKey);
+    if (cached && !changeResult) {
+      try {
+        const parsed = JSON.parse(cached);
+        // Only load if the current plan isn't already the new plan
+        if (detail && detail.plan !== parsed.new_plan) {
+          setChangeResult(parsed);
+        } else if (detail && detail.plan === parsed.new_plan) {
+          localStorage.removeItem(cacheKey); // Clear if now active
+        }
+      } catch (e) {
+        localStorage.removeItem(cacheKey);
+      }
+    }
+
+    // 2. Save to localStorage when changeResult updates
+    if (changeResult) {
+      localStorage.setItem(cacheKey, JSON.stringify(changeResult));
+    }
+  }, [userId, changeResult, detail]);
 
   const handlePlanChange = async () => {
     if (!selectedPlan) return;
     try {
-      await changePlan({ userId, plan: selectedPlan }).unwrap();
-      alert("Plan updated successfully!");
-    } catch (err) {
-      alert("Failed to update plan.");
+      const res = await changePlan({ userId, plan: selectedPlan }).unwrap();
+      setChangeResult(res);
+      // Immediate save
+      localStorage.setItem(`pending_plan_${userId}`, JSON.stringify(res));
+      showToast("Plan changed successfully!");
+    } catch (err: any) {
+      showToast(err?.data?.message || "Failed to update plan.", false);
     }
   };
 
-  const handleRefund = async (invoiceId: string) => {
-    if (!confirm("Are you sure you want to refund this invoice?")) return;
+  const handleRefund = (invoiceId: string) => {
+    setConfirmRefundInvoice(invoiceId);
+    setRefundReason("");
+  };
+
+  const submitRefund = async () => {
+    if (!confirmRefundInvoice) return;
     try {
-      await refund({ userId, stripe_invoice_id: invoiceId }).unwrap();
-      alert("Refund processed successfully!");
-    } catch (err) {
-      alert("Refund failed.");
+      await refund({ 
+        userId, 
+        stripe_invoice_id: confirmRefundInvoice, 
+        reason: refundReason 
+      }).unwrap();
+      showToast("Refund successfully initiated.");
+      setConfirmRefundInvoice(null);
+    } catch (err: any) {
+      showToast(err?.data?.message || "Failed to process refund.", false);
     }
   };
 
@@ -301,17 +370,46 @@ function ManageModal({ userId, onClose, plans }: { userId: number; onClose: () =
           ) : detail ? (
             <>
               {/* Profile Summary */}
-              <div className="flex items-center gap-4 bg-gray-800/30 p-5 rounded-2xl border border-gray-800">
-                <div className="w-12 h-12 rounded-full bg-emerald-600 flex items-center justify-center font-bold text-xl text-white shadow-lg">
-                  {detail.user_email.charAt(0).toUpperCase()}
+              <div className="flex flex-col gap-4 bg-gray-800/30 p-5 rounded-2xl border border-gray-800">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-full bg-emerald-600 flex items-center justify-center font-bold text-xl text-white shadow-lg">
+                    {detail.user_email.charAt(0).toUpperCase()}
+                  </div>
+                  <div>
+                    <div className="text-lg font-bold text-white">{detail.user_email}</div>
+                    <div className="text-xs text-gray-500 font-medium">Customer Since {fmtDate(detail.created_at)}</div>
+                  </div>
+                  <div className="ml-auto flex flex-col items-end gap-2">
+                    <StatusBadge status={detail.status} />
+                    <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                      Current: {detail.plan}
+                    </span>
+                  </div>
                 </div>
-                <div>
-                  <div className="text-lg font-bold text-white">{detail.user_email}</div>
-                  <div className="text-xs text-gray-500 font-medium">Customer Since {fmtDate(detail.created_at)}</div>
-                </div>
-                <div className="ml-auto">
-                  <StatusBadge status={detail.status} />
-                </div>
+
+                {/* Upcoming Plan Change */}
+                {(changeResult || detail.new_plan) && (
+                  <div className="mt-2 p-4 bg-emerald-950/30 border border-emerald-500/30 rounded-xl flex items-center justify-between animate-in slide-in-from-top-2 duration-500">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-emerald-500/20 rounded-lg text-emerald-400">
+                        <Zap size={16} />
+                      </div>
+                      <div>
+                        <div className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest">Scheduled Change</div>
+                        <div className="text-sm font-bold text-white">
+                          Switches to <span className="text-emerald-400 uppercase">{changeResult?.new_plan || detail.new_plan}</span>
+                        </div>
+                        {changeResult?.message && (
+                          <div className="text-[9px] text-emerald-500/80 mt-0.5">{changeResult.message}</div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Effective Date</div>
+                      <div className="text-xs font-medium text-gray-300">{fmtDate(changeResult?.effective_date || detail.effective_date || "")}</div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Plan Management */}
@@ -324,7 +422,10 @@ function ManageModal({ userId, onClose, plans }: { userId: number; onClose: () =
                     <div className="text-sm font-medium text-gray-300">Switch Plan</div>
                     <select 
                       value={selectedPlan || detail.plan}
-                      onChange={(e) => setSelectedPlan(e.target.value)}
+                      onChange={(e) => {
+                        setSelectedPlan(e.target.value);
+                        setChangeResult(null);
+                      }}
                       className="w-full bg-gray-900 border border-gray-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-emerald-500/50 text-white"
                     >
                       {plans.map((p: any) => (
@@ -333,11 +434,11 @@ function ManageModal({ userId, onClose, plans }: { userId: number; onClose: () =
                     </select>
                     <button 
                       onClick={handlePlanChange}
-                      disabled={isChanging || !selectedPlan || selectedPlan === detail.plan}
+                      disabled={isChanging || !selectedPlan || (selectedPlan === detail.plan && !changeResult)}
                       className="w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold py-3 rounded-xl transition-all shadow-lg active:scale-95"
                     >
                       {isChanging && <Loader2 size={16} className="animate-spin" />}
-                      Update Subscription
+                      {isChanging ? "Processing..." : "Update Subscription"}
                     </button>
                   </div>
 
@@ -373,20 +474,32 @@ function ManageModal({ userId, onClose, plans }: { userId: number; onClose: () =
                         </div>
                       </div>
                       <div className="flex items-center gap-4">
-                        <span className="text-xs font-medium text-emerald-400 bg-emerald-950/30 px-2 py-0.5 rounded border border-emerald-900/50 uppercase tracking-wider">
-                          {inv.status}
-                        </span>
+                        {inv.status === 'paid' ? (
+                          <span className="text-xs font-medium text-emerald-400 bg-emerald-950/30 px-2 py-0.5 rounded border border-emerald-900/50 uppercase tracking-wider">
+                            Paid
+                          </span>
+                        ) : inv.status === 'refunded' || inv.status === 'canceled' ? (
+                          <span className="text-xs font-medium text-amber-400 bg-amber-950/30 px-2 py-0.5 rounded border border-amber-900/50 uppercase tracking-wider">
+                            {inv.status === 'refunded' ? 'Refunded' : 'Canceled'}
+                          </span>
+                        ) : (
+                          <span className="text-xs font-medium text-red-400 bg-red-950/30 px-2 py-0.5 rounded border border-red-900/50 uppercase tracking-wider">
+                            {inv.status}
+                          </span>
+                        )}
                         <div className="flex gap-2">
                           <a href={inv.hosted_invoice_url} target="_blank" rel="noopener noreferrer" className="p-2 bg-gray-800 hover:bg-gray-700 rounded-lg transition text-gray-400">
                             <ArrowRight size={14} />
                           </a>
-                          <button 
-                            onClick={() => handleRefund(inv.invoice_id)}
-                            disabled={isRefunding}
-                            className="px-3 py-1 bg-red-950/30 hover:bg-red-950/50 text-red-400 border border-red-900/50 text-[10px] font-bold rounded-lg transition uppercase tracking-widest"
-                          >
-                            Refund
-                          </button>
+                          {detail.status === 'active' && inv.status === 'paid' && (
+                            <button 
+                              onClick={() => handleRefund(inv.invoice_id)}
+                              disabled={isRefunding}
+                              className="px-3 py-1 bg-red-950/30 hover:bg-red-950/50 text-red-400 border border-red-900/50 text-[10px] font-bold rounded-lg transition uppercase tracking-widest"
+                            >
+                              Refund
+                            </button>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -400,6 +513,60 @@ function ManageModal({ userId, onClose, plans }: { userId: number; onClose: () =
           ) : null}
         </div>
       </div>
+
+      {/* Toast Notification */}
+      {toast && (
+        <div className={`fixed bottom-8 right-8 z-[100] flex items-center gap-3 px-5 py-3 rounded-2xl text-sm font-bold shadow-2xl animate-in slide-in-from-bottom-5 duration-300 ${
+          toast.ok ? "bg-emerald-900 border border-emerald-500 text-emerald-300" : "bg-red-900 border border-red-500 text-red-300"
+        }`}>
+          {toast.ok ? <CheckCircle2 size={18} /> : <AlertCircle size={18} />}
+          {toast.msg}
+        </div>
+      )}
+
+      {/* Refund Confirmation Modal */}
+      {confirmRefundInvoice && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/90 p-4 backdrop-blur-md">
+          <div className="bg-gray-900 border border-gray-800 rounded-3xl w-full max-w-md overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="p-8 space-y-6">
+              <div className="w-16 h-16 bg-red-950/50 rounded-2xl flex items-center justify-center mx-auto border border-red-900/30">
+                <AlertCircle size={32} className="text-red-500" />
+              </div>
+              <div className="text-center">
+                <h3 className="text-xl font-bold text-white">Confirm Refund</h3>
+                <p className="text-sm text-gray-400 mt-2">Are you sure you want to refund invoice <span className="font-mono text-gray-200">{confirmRefundInvoice}</span>?</p>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Refund Reason (Optional)</label>
+                <textarea 
+                  value={refundReason}
+                  onChange={(e) => setRefundReason(e.target.value)}
+                  placeholder="Explain why you are issuing this refund..."
+                  className="w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-red-500/50 transition-colors resize-none h-24"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 pt-4">
+                <button 
+                  onClick={() => setConfirmRefundInvoice(null)}
+                  className="px-6 py-3 bg-gray-800 hover:bg-gray-700 text-gray-300 font-bold rounded-xl transition-all"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={submitRefund}
+                  disabled={isRefunding}
+                  className="px-6 py-3 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white font-bold rounded-xl transition-all shadow-lg shadow-red-900/20 flex items-center justify-center gap-2"
+                >
+                  {isRefunding && <Loader2 size={16} className="animate-spin" />}
+                  Confirm Refund
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

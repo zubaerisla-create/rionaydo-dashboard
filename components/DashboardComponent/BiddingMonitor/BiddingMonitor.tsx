@@ -13,7 +13,8 @@ import {
   CheckCircle,
   Users,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Search
 } from "lucide-react";
 import { 
   useGetFlaggedAuctionsQuery, 
@@ -135,7 +136,8 @@ function FlagModal({ auctionId, initialData, onClose, onConfirm }: { auctionId: 
 
 export default function SuspiciousBiddingDetection() {
   const [page, setPage] = useState(1);
-  const { data, isLoading, isError, refetch, isFetching } = useGetFlaggedAuctionsQuery({ page });
+  const [search, setSearch] = useState("");
+  const { data, isLoading, isError, refetch, isFetching } = useGetFlaggedAuctionsQuery({ page, search });
   const totalPages = data ? Math.ceil(data.count / 8) : 1;
   const [selectedAuctionId, setSelectedAuctionId] = useState<number | null>(null);
   const [flaggingAuctionId, setFlaggingAuctionId] = useState<number | null>(null);
@@ -167,14 +169,32 @@ export default function SuspiciousBiddingDetection() {
                 Review and manage flagged auctions with unusual behavior
               </p>
             </div>
-            <button 
-              onClick={() => refetch()} 
-              disabled={isFetching}
-              className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg text-sm transition disabled:opacity-50"
-            >
-              <RefreshCw size={14} className={`text-gray-400 ${isFetching ? 'animate-spin' : ''}`} /> 
-              {isFetching ? 'Refreshing...' : 'Refresh'}
-            </button>
+            
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <input 
+                  type="text" 
+                  value={search}
+                  onChange={(e) => {
+                    setSearch(e.target.value);
+                    setPage(1);
+                  }}
+                  placeholder="Search auction name..."
+                  className="bg-gray-900 border border-gray-800 rounded-lg pl-4 pr-10 py-2 text-sm text-white focus:outline-none focus:border-amber-500/50 transition-colors w-64"
+                />
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">
+                  {isFetching ? <Loader2 size={14} className="animate-spin" /> :<Search size={14} />}
+                </div>
+              </div>
+              <button 
+                onClick={() => refetch()} 
+                disabled={isFetching}
+                className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg text-sm transition disabled:opacity-50"
+              >
+                <RefreshCw size={14} className={`text-gray-400 ${isFetching ? 'animate-spin' : ''}`} /> 
+                {isFetching ? 'Refreshing...' : 'Refresh'}
+              </button>
+            </div>
           </div>
 
           {/* Stats Row */}

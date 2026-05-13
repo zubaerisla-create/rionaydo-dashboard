@@ -9,9 +9,11 @@ import { useLoginMutation } from '../../../lib/authApi';
 import { useDispatch } from 'react-redux';
 import { setCredentials } from '../../../lib/authSlice';
 import { useRouter } from 'next/navigation';
+import { Eye, EyeOff } from 'lucide-react';
 
 export default function AdminLoginPage() {
   const [form, setForm] = useState({ email: '', password: '' });
+  const [showPassword, setShowPassword] = useState(false);
   const [login, { isLoading, error }] = useLoginMutation();
   const dispatch = useDispatch();
   const router = useRouter();
@@ -30,8 +32,12 @@ export default function AdminLoginPage() {
         user: { email: res.email, role: res.role, user_id: res.user_id },
       }));
       router.push('/dashboard');
-    } catch (err) {
-      console.error('Login failed:', err);
+    } catch (err: any) {
+      console.error('Login error details:', {
+        status: err?.status,
+        data: err?.data,
+        message: err?.data?.message || err?.error || 'Unknown error'
+      });
     }
   };
   return (
@@ -88,22 +94,31 @@ export default function AdminLoginPage() {
               <label htmlFor="password" className="block text-sm font-medium text-gray-300">
                 Password
               </label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                autoComplete="current-password"
-                required
-                value={form.password}
-                onChange={handleChange}
-                placeholder="Enter your password"
-                className="
-                  w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3
-                  text-gray-100 placeholder-gray-500
-                  focus:outline-none focus:border-emerald-600/70 focus:ring-1 focus:ring-emerald-600/30
-                  transition-all duration-150
-                "
-              />
+              <div className="relative">
+                <input
+                  id="password"
+                  name="password"
+                  type={showPassword ? 'text' : 'password'}
+                  autoComplete="current-password"
+                  required
+                  value={form.password}
+                  onChange={handleChange}
+                  placeholder="Enter your password"
+                  className="
+                    w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 pr-10
+                    text-gray-100 placeholder-gray-500
+                    focus:outline-none focus:border-emerald-600/70 focus:ring-1 focus:ring-emerald-600/30
+                    transition-all duration-150
+                  "
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 transition-colors"
+                >
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
             </div>
 
             {/* Remember me + Forgot password */}
@@ -137,7 +152,17 @@ export default function AdminLoginPage() {
             >
               {isLoading ? 'Signing In...' : 'Sign In'}
             </button>
-            {error && <div className="text-red-500 text-sm mt-2">Login failed. Please check your credentials.</div>}
+            {(error as any) && (
+              <div className="bg-red-900/40 border border-red-800/50 rounded-lg p-3 text-red-300 text-xs flex items-start gap-2">
+                <div className="flex-1">
+                  <p className="font-bold uppercase tracking-widest text-[10px] mb-1 text-red-400">Authentication Error</p>
+                  <p>{(error as any)?.data?.message || (error as any)?.error || "Invalid email or password. Please try again."}</p>
+                  {(error as any)?.data?.extra?.fields?.map((f: string, i: number) => (
+                    <p key={i} className="mt-1 font-medium">• {f}</p>
+                  ))}
+                </div>
+              </div>
+            )}
           </form>
         </div>
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { FileText, Search, ChevronLeft, ChevronRight, Loader2, AlertCircle } from "lucide-react";
 import { useGetAuditLogsQuery, useLazyGetAuditLogsQuery } from "@/lib/adminApi";
 import jsPDF from "jspdf";
@@ -25,8 +25,18 @@ function getActionColor(action: string) {
 
 export default function AuditLogsPage() {
   const [page, setPage] = useState(1);
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [isExportingPdf, setIsExportingPdf] = useState(false);
-  const { data, isLoading, isError } = useGetAuditLogsQuery({ page });
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 500);
+    return () => clearTimeout(handler);
+  }, [search]);
+
+  const { data, isLoading, isError } = useGetAuditLogsQuery({ page, search: debouncedSearch });
   const [getAuditLogs] = useLazyGetAuditLogsQuery();
 
   const totalPages = data ? Math.ceil(data.count / 8) : 1;
@@ -37,12 +47,12 @@ export default function AuditLogsPage() {
     setIsExportingPdf(true);
     try {
       const pageSize = 100;
-      const firstPage = await getAuditLogs({ page: 1, pageSize }).unwrap();
+      const firstPage = await getAuditLogs({ page: 1, pageSize, search: debouncedSearch }).unwrap();
       const totalExportPages = Math.max(1, Math.ceil(firstPage.count / pageSize));
       const allLogs = [...firstPage.results];
 
       for (let exportPage = 2; exportPage <= totalExportPages; exportPage += 1) {
-        const pageData = await getAuditLogs({ page: exportPage, pageSize }).unwrap();
+        const pageData = await getAuditLogs({ page: exportPage, pageSize, search: debouncedSearch }).unwrap();
         allLogs.push(...pageData.results);
       }
 
@@ -104,14 +114,31 @@ export default function AuditLogsPage() {
               </p>
             </div>
 
-            <button 
-              onClick={handleExportPDF}
-              disabled={isExportingPdf}
-              className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 disabled:cursor-not-allowed text-white rounded-lg text-sm transition font-bold shadow-lg shadow-emerald-900/20"
-            >
-              {isExportingPdf ? <Loader2 size={16} className="animate-spin" /> : <FileText size={16} />}
-              {isExportingPdf ? "Exporting..." : "Export PDF"}
-            </button>
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <input 
+                  type="text" 
+                  value={search}
+                  onChange={(e) => {
+                    setSearch(e.target.value);
+                    setPage(1);
+                  }}
+                  placeholder="Search "
+                  className="bg-gray-900 border border-gray-800 rounded-lg pl-4 pr-10 py-2 text-sm text-white focus:outline-none focus:border-emerald-500/50 transition-colors w-64"
+                />
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">
+                  {search !== debouncedSearch ? <Loader2 size={14} className="animate-spin text-emerald-500" /> : <Search size={14} />}
+                </div>
+              </div>
+              <button 
+                onClick={handleExportPDF}
+                disabled={isExportingPdf}
+                className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 disabled:cursor-not-allowed text-white rounded-lg text-sm transition font-bold shadow-lg shadow-emerald-900/20"
+              >
+                {isExportingPdf ? <Loader2 size={16} className="animate-spin" /> : <FileText size={16} />}
+                {isExportingPdf ? "Exporting..." : "Export PDF"}
+              </button>
+            </div>
           </div>
         </div>
 

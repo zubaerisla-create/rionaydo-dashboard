@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   User,
   Mail,
@@ -11,8 +12,12 @@ import {
   Lock,
   Loader2,
   AlertCircle,
+  CheckCircle2,
+  Eye,
+  EyeOff,
+  HelpCircle,
 } from 'lucide-react';
-import { useGetMeQuery, useUpdateMeMutation } from '@/lib/adminApi';
+import { useGetMeQuery, useUpdateMeMutation, useChangePasswordMutation } from '@/lib/adminApi';
 
 function fmtDate(date: string) {
   if (!date) return 'N/A';
@@ -23,27 +28,88 @@ function fmtDate(date: string) {
 }
 
 export default function ProfileSettings() {
+  const router = useRouter();
   const { data: profile, isLoading, isError } = useGetMeQuery();
   const [updateMe, { isLoading: isUpdating }] = useUpdateMeMutation();
+  const [changePassword, { isLoading: isChangingPassword }] = useChangePasswordMutation();
   
   const [fullName, setFullName] = useState('');
   const [currentPw, setCurrentPw] = useState('');
   const [newPw, setNewPw] = useState('');
   const [confirmPw, setConfirmPw] = useState('');
+  const [status, setStatus] = useState<{ msg: string; ok: boolean } | null>(null);
+  const [showCurrentPw, setShowCurrentPw] = useState(false);
+  const [showNewPw, setShowNewPw] = useState(false);
+  const [showConfirmPw, setShowConfirmPw] = useState(false);
 
   // Sync fullName with profile data when it loads
-  useState(() => {
+  useEffect(() => {
     if (profile?.full_name) {
       setFullName(profile.full_name);
     }
-  });
+  }, [profile]);
+
+  const notify = (msg: string, ok = true) => {
+    setStatus({ msg, ok });
+    setTimeout(() => setStatus(null), 3000);
+  };
 
   const handleUpdateProfile = async () => {
     try {
       await updateMe({ full_name: fullName }).unwrap();
-      alert('Profile updated successfully!');
+      notify('Profile updated successfully!');
     } catch (err) {
-      alert('Failed to update profile.');
+      notify('Failed to update profile.', false);
+    }
+  };
+
+  const handleChangePassword = async () => {
+    // Validation
+    if (!currentPw.trim()) {
+      notify('Please enter your current password.', false);
+      return;
+    }
+    if (!newPw.trim()) {
+      notify('Please enter a new password.', false);
+      return;
+    }
+    if (!confirmPw.trim()) {
+      notify('Please confirm your new password.', false);
+      return;
+    }
+    if (newPw !== confirmPw) {
+      notify('New passwords do not match.', false);
+      return;
+    }
+    if (newPw === currentPw) {
+      notify('New password must be different from current password.', false);
+      return;
+    }
+    if (newPw.length < 8) {
+      notify('New password must be at least 8 characters long.', false);
+      return;
+    }
+
+    try {
+      await changePassword({
+        current_password: currentPw,
+        new_password: newPw,
+      }).unwrap();
+      notify('Password changed successfully!');
+      // Clear password fields
+      setCurrentPw('');
+      setNewPw('');
+      setConfirmPw('');
+    } catch (err: any) {
+      let errorMsg = err?.data?.message || err?.error || 'Failed to change password. Please check your current password.';
+      
+      // Check for specific validation field errors
+      const fieldErrors = err?.data?.extra?.fields;
+      if (Array.isArray(fieldErrors) && fieldErrors.length > 0) {
+        errorMsg = fieldErrors[0]; // Show the first specific validation error
+      }
+      
+      notify(errorMsg, false);
     }
   };
 
@@ -68,6 +134,16 @@ export default function ProfileSettings() {
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100 ">
       <div className="mx-auto max-w-9xl space-y-8">
+        
+        {/* Toast Notification */}
+        {status && (
+          <div className={`fixed top-6 right-6 z-50 flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium shadow-2xl animate-in fade-in slide-in-from-top-4 ${
+            status.ok ? 'bg-emerald-900/90 border border-emerald-700 text-emerald-300' : 'bg-red-900/90 border border-red-700 text-red-300'
+          }`}>
+            {status.ok ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
+            {status.msg}
+          </div>
+        )}
 
         {/* ─── Profile Information ──────────────────────────────────────── */}
         <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
@@ -130,14 +206,24 @@ export default function ProfileSettings() {
             </h3>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-              <Input label="Current Password" type="password" value={currentPw} onChange={setCurrentPw} />
-              <Input label="New Password" type="password" value={newPw} onChange={setNewPw} />
-              <Input label="Confirm New Password" type="password" value={confirmPw} onChange={setConfirmPw} />
+              <PasswordInput label="Current Password" value={currentPw} onChange={setCurrentPw} isVisible={showCurrentPw} setIsVisible={setShowCurrentPw} />
+              <PasswordInput label="New Password" value={newPw} onChange={setNewPw} isVisible={showNewPw} setIsVisible={setShowNewPw} />
+              <PasswordInput label="Confirm New Password" value={confirmPw} onChange={setConfirmPw} isVisible={showConfirmPw} setIsVisible={setShowConfirmPw} />
             </div>
 
-            <div className="flex justify-end pt-2">
-              <button className="px-7 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 rounded-lg font-bold text-white transition-all shadow-md active:scale-95">
-                Update Password
+            <div className="flex items-center justify-between pt-2">
+              <button
+                onClick={() => router.push('/login/forgot-email')}
+                className="text-emerald-400 hover:text-emerald-300 text-sm font-medium transition-colors"
+              >
+                Forgot Password?
+              </button>
+              <button 
+                onClick={handleChangePassword}
+                disabled={isChangingPassword}
+                className="px-7 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg font-bold text-white transition-all shadow-md active:scale-95"
+              >
+                {isChangingPassword ? 'Updating...' : 'Update Password'}
               </button>
             </div>
           </div>
@@ -200,6 +286,45 @@ function Input({
           transition-all
         "
       />
+    </div>
+  );
+}
+
+function PasswordInput({
+  label,
+  value,
+  onChange,
+  isVisible,
+  setIsVisible,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  isVisible: boolean;
+  setIsVisible: (v: boolean) => void;
+}) {
+  return (
+    <div>
+      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">{label}</label>
+      <div className="relative">
+        <input
+          type={isVisible ? 'text' : 'password'}
+          value={value}
+          onChange={e => onChange(e.target.value)}
+          className="
+            w-full bg-gray-900 border border-gray-800 rounded-lg
+            px-4 py-2.5 pr-10 text-sm text-white focus:outline-none focus:border-emerald-500/50
+            transition-all
+          "
+        />
+        <button
+          type="button"
+          onClick={() => setIsVisible(!isVisible)}
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 transition-colors"
+        >
+          {isVisible ? <EyeOff size={18} /> : <Eye size={18} />}
+        </button>
+      </div>
     </div>
   );
 }

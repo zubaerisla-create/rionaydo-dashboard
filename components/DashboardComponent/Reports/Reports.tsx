@@ -253,7 +253,7 @@ export default function AnalyticsDashboard() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
           <KpiCard
             title="Total Revenue"
-            value={stats ? `CHF ${(parseFloat(stats.total_revenue) / 1000000).toFixed(2)}M` : "—"}
+            value={stats ? `CHF ${parseFloat(stats.total_revenue).toLocaleString()}` : "—"}
             change="Gross lifetime revenue"
             color="text-yellow-400"
             isLoading={statsLoading}
@@ -274,7 +274,7 @@ export default function AnalyticsDashboard() {
           />
           <KpiCard
             title="Avg. Vehicle Price"
-            value={stats ? `CHF ${(parseFloat(stats.avg_vehicle_price) / 1000).toFixed(1)}K` : "—"}
+            value={stats ? `CHF ${parseFloat(stats.avg_vehicle_price).toLocaleString()}` : "—"}
             change="Market average per unit"
             color="text-emerald-400"
             isLoading={statsLoading}

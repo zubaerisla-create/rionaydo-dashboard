@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Eye, Pause, Play, Flag, Trash2, X, Clock, Users,
   Gavel, ChevronLeft, ChevronRight, Loader2, AlertCircle,
-  RefreshCw, TrendingUp, CheckCircle, AlertTriangle
+  RefreshCw, TrendingUp, CheckCircle, AlertTriangle,
+  Search
 } from "lucide-react";
 import {
   useGetAuctionListQuery,
@@ -380,8 +381,18 @@ function AuctionRowActions({ auction, onView }: { auction: AuctionListItem; onVi
 
 export default function AuctionsMonitor() {
   const [page, setPage] = useState(1);
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [selectedId, setSelectedId] = useState<number | null>(null);
-  const { data, isLoading, isError, refetch, isFetching } = useGetAuctionListQuery({ page });
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 500);
+    return () => clearTimeout(handler);
+  }, [search]);
+
+  const { data, isLoading, isError, refetch, isFetching } = useGetAuctionListQuery({ page, search: debouncedSearch });
   const totalPages = data ? Math.ceil(data.count / 8) : 1;
 
   return (
@@ -394,14 +405,32 @@ export default function AuctionsMonitor() {
               <h1 className="text-2xl font-bold">Auctions Monitor</h1>
               <p className="text-gray-400 text-sm mt-1">Real-time auction oversight and control</p>
             </div>
-            <button 
-              onClick={() => refetch()} 
-              disabled={isFetching}
-              className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg text-sm transition disabled:opacity-50"
-            >
-              <RefreshCw size={14} className={`text-gray-400 ${isFetching ? 'animate-spin' : ''}`} /> 
-              {isFetching ? 'Refreshing...' : 'Refresh'}
-            </button>
+            
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <input 
+                  type="text" 
+                  value={search}
+                  onChange={(e) => {
+                    setSearch(e.target.value);
+                    setPage(1);
+                  }}
+                  placeholder="Search vehicle or email..."
+                  className="bg-gray-900 border border-gray-800 rounded-lg pl-4 pr-10 py-2 text-sm text-white focus:outline-none focus:border-emerald-500/50 transition-colors w-64"
+                />
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">
+                  {search !== debouncedSearch ? <Loader2 size={14} className="animate-spin text-emerald-500" /> : <Search size={14} />}
+                </div>
+              </div>
+              <button 
+                onClick={() => refetch()} 
+                disabled={isFetching}
+                className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg text-sm transition disabled:opacity-50"
+              >
+                <RefreshCw size={14} className={`text-gray-400 ${isFetching ? 'animate-spin' : ''}`} /> 
+                {isFetching ? 'Refreshing...' : 'Refresh'}
+              </button>
+            </div>
           </div>
 
           {/* Stats */}

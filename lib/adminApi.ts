@@ -201,6 +201,21 @@ export type AdminProfile = {
   created_at: string;
 };
 
+export type ChangePasswordRequest = {
+  current_password: string;
+  new_password: string;
+};
+
+export type ChangePasswordResponse = {
+  message: string;
+};
+
+export type ChangePlanResponse = {
+  message: string;
+  new_plan: string;
+  effective_date: string;
+};
+
 export type SupportContact = {
   support_email: string;
   support_phone: string;
@@ -237,6 +252,8 @@ export type InvoiceItem = {
 };
 
 export type UserSubscriptionDetail = SubscriptionItem & {
+  new_plan?: string;
+  effective_date?: string;
   payment_method: {
     brand: string;
     last4: string;
@@ -316,12 +333,23 @@ export type PresignedUrlResponse = {
   object_key: string;
   public_url: string;
   content_type: string;
-};// ─── API ──────────────────────────────────────────────────────────────────────
+};
+
+export type BidConfig = {
+  min_bid_increment: number;
+};
+
+export type AuctionConfig = {
+  min_auction_duration_hours: number;
+  max_auction_duration_hours: number;
+};
+
+// ─── API ──────────────────────────────────────────────────────────────────────
 
 export const adminApi = createApi({
   reducerPath: 'adminApi',
   baseQuery,
-  tagTypes: ['Users', 'User', 'Auctions', 'Auction', 'Bids', 'Admins', 'Plans', 'Conversations', 'Messages'],
+  tagTypes: ['Users', 'User', 'Auctions', 'Auction', 'Bids', 'Admins', 'Plans', 'Conversations', 'Messages', 'Subscriptions'],
   endpoints: (builder) => ({
     // ── Users ──────────────────────────────────────────────────────────────
     getUserList: builder.query<PaginatedUsers, { page?: number; search?: string; role?: string }>({
@@ -382,9 +410,9 @@ export const adminApi = createApi({
     }),
 
     // ── Auctions ───────────────────────────────────────────────────────────
-    getAuctionList: builder.query<PaginatedAuctions, { page?: number }>({
-      query: ({ page = 1 } = {}) => ({
-        url: `/api/admin/auctions/?page=${page}&page_size=8`,
+    getAuctionList: builder.query<PaginatedAuctions, { page?: number; search?: string }>({
+      query: ({ page = 1, search = '' } = {}) => ({
+        url: `/api/admin/auctions/?page=${page}&page_size=8${search ? `&search=${encodeURIComponent(search)}` : ''}`,
         method: 'GET',
       }),
       providesTags: ['Auctions'],
@@ -477,9 +505,9 @@ export const adminApi = createApi({
     }),
 
     // ── Compliance ────────────────────────────────────────────────────────
-    getAuditLogs: builder.query<PaginatedAuditLogs, { page?: number; pageSize?: number }>({
-      query: ({ page = 1, pageSize = 8 } = {}) => ({
-        url: `/api/admin/compliance/audit-logs/?page=${page}&page_size=${pageSize}`,
+    getAuditLogs: builder.query<PaginatedAuditLogs, { page?: number; pageSize?: number; search?: string }>({
+      query: ({ page = 1, pageSize = 8, search = '' } = {}) => ({
+        url: `/api/admin/compliance/audit-logs/?page=${page}&page_size=${pageSize}${search ? `&search=${encodeURIComponent(search)}&actor_email=${encodeURIComponent(search)}` : ''}`,
         method: 'GET',
       }),
     }),
@@ -502,6 +530,14 @@ export const adminApi = createApi({
       invalidatesTags: ['User'],
     }),
 
+    changePassword: builder.mutation<ChangePasswordResponse, ChangePasswordRequest>({
+      query: (body) => ({
+        url: '/api/admin/me/change-password/',
+        method: 'POST',
+        body,
+      }),
+    }),
+
     // ── Support ───────────────────────────────────────────────────────────
     getSupportContact: builder.query<SupportContact, void>({
       query: () => ({
@@ -519,11 +555,12 @@ export const adminApi = createApi({
     }),
 
     // ── Subscriptions ─────────────────────────────────────────────────────
-    getSubscriptions: builder.query<PaginatedSubscriptions, { page?: number; pageSize?: number }>({
-      query: ({ page = 1, pageSize = 8 } = {}) => ({
-        url: `/api/admin/subscriptions/?page=${page}&page_size=${pageSize}`,
+    getSubscriptions: builder.query<PaginatedSubscriptions, { page?: number; pageSize?: number; search?: string }>({
+      query: ({ page = 1, pageSize = 8, search = '' } = {}) => ({
+        url: `/api/admin/subscriptions/?page=${page}&page_size=${pageSize}${search ? `&search=${encodeURIComponent(search)}` : ''}`,
         method: 'GET',
       }),
+      providesTags: ['Subscriptions'],
     }),
 
     getUserSubscription: builder.query<UserSubscriptionDetail, number>({
@@ -531,14 +568,21 @@ export const adminApi = createApi({
         url: `/api/admin/subscriptions/${userId}/`,
         method: 'GET',
       }),
+      providesTags: (_r, _e, id) => [{ type: 'Subscriptions', id }],
     }),
 
-    changeUserPlan: builder.mutation<any, { userId: number; plan: string }>({
+    changeUserPlan: builder.mutation<ChangePlanResponse, { userId: number; plan: string }>({
       query: ({ userId, plan }) => ({
         url: `/api/admin/subscriptions/${userId}/change-plan/`,
         method: 'PATCH',
         body: { plan },
       }),
+      invalidatesTags: (result, error, { userId }) => [
+        'Users', 
+        'User', 
+        'Subscriptions', 
+        { type: 'Subscriptions', id: userId }
+      ],
     }),
 
     getUserInvoices: builder.query<InvoiceItem[], number>({
@@ -548,12 +592,13 @@ export const adminApi = createApi({
       }),
     }),
 
-    refundSubscription: builder.mutation<any, { userId: number; stripe_invoice_id: string }>({
-      query: ({ userId, stripe_invoice_id }) => ({
+    refundSubscription: builder.mutation<any, { userId: number; stripe_invoice_id: string; reason?: string }>({
+      query: ({ userId, ...body }) => ({
         url: `/api/admin/subscriptions/${userId}/refund/`,
         method: 'POST',
-        body: { stripe_invoice_id },
+        body,
       }),
+      invalidatesTags: (_result, _error, { userId }) => [{ type: 'Subscriptions', id: userId }],
     }),
 
     // ── Plans ─────────────────────────────────────────────────────────────
@@ -562,14 +607,16 @@ export const adminApi = createApi({
         url: '/api/admin/plans/',
         method: 'GET',
       }),
+      providesTags: ['Plans'],
     }),
 
-    updatePlanPrice: builder.mutation<any, { plan: string; price: string }>({
+    updatePlanPrice: builder.mutation<PlanItem, { plan: string; price: string }>({
       query: ({ plan, price }) => ({
-        url: `/api/admin/plans/${plan}/price/`,
+        url: `/api/admin/plans/${encodeURIComponent(plan)}/price/`,
         method: 'PATCH',
         body: { price },
       }),
+      invalidatesTags: ['Plans'],
     }),
 
     // ── Admin Management ────────────────────────────────────────────────────────
@@ -586,8 +633,8 @@ export const adminApi = createApi({
       }),
       invalidatesTags: ['Admins'],
     }),
-    getFlaggedAuctions: builder.query<{ count: number; previous: string | null; next: string | null; results: FlaggedAuction[] }, { page?: number }>({
-      query: ({ page = 1 } = {}) => `api/admin/auctions/flagged/?page=${page}&page_size=8`,
+    getFlaggedAuctions: builder.query<{ count: number; previous: string | null; next: string | null; results: FlaggedAuction[] }, { page?: number; search?: string }>({
+      query: ({ page = 1, search = '' } = {}) => `api/admin/auctions/flagged/?page=${page}&page_size=8${search ? `&search=${encodeURIComponent(search)}` : ''}`,
       providesTags: ['Auctions'],
     }),
 
@@ -623,6 +670,42 @@ export const adminApi = createApi({
         method: 'GET',
         params,
       }),
+    }),
+
+    // ── Bid Config ───────────────────────────────────────────────────────────
+    getBidConfig: builder.query<BidConfig, void>({
+      query: () => ({
+        url: '/api/admin/config/bid/',
+        method: 'GET',
+      }),
+      providesTags: ['Auctions'],
+    }),
+
+    updateBidConfig: builder.mutation<BidConfig, { min_bid_increment: number }>({
+      query: (body) => ({
+        url: '/api/admin/config/bid/',
+        method: 'PUT',
+        body,
+      }),
+      invalidatesTags: ['Auctions'],
+    }),
+
+    // ── Auction Config ────────────────────────────────────────────────────────
+    getAuctionConfig: builder.query<AuctionConfig, void>({
+      query: () => ({
+        url: '/api/admin/config/auction/',
+        method: 'GET',
+      }),
+      providesTags: ['Auctions'],
+    }),
+
+    updateAuctionConfig: builder.mutation<AuctionConfig, { min_auction_duration_hours: number; max_auction_duration_hours: number }>({
+      query: (body) => ({
+        url: '/api/admin/config/auction/',
+        method: 'PUT',
+        body,
+      }),
+      invalidatesTags: ['Auctions'],
     }),
   }),
 });
@@ -670,6 +753,7 @@ export const {
   useLazyGetAuditLogsQuery,
   useGetMeQuery,
   useUpdateMeMutation,
+  useChangePasswordMutation,
   useGetSupportContactQuery,
   useUpdateSupportContactMutation,
   useGetSubscriptionsQuery,
@@ -687,6 +771,9 @@ export const {
   useGetMessagesQuery,
   useSendMessageMutation,
   useLazyGetPresignedUrlQuery,
+  useGetBidConfigQuery,
+  useUpdateBidConfigMutation,
+  useGetAuctionConfigQuery,
+  useUpdateAuctionConfigMutation,
 } = adminApi;
-
 

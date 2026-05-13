@@ -538,7 +538,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <div className="topbar-right">
           
               <span className="topbar-email">{profile?.email}</span>
-              <div className="topbar-avatar">{userInitial}</div>
+              <Link href="/dashboard/profile" className="profile-card" onClick={() => setSidebarOpen(false)}>
+                <div className="profile-avatar">Profile</div>
+              </Link>
             </div>
           </header>
 

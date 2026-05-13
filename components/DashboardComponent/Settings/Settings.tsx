@@ -1,13 +1,48 @@
 "use client"
 
 import { useState, useEffect } from 'react'
-import { useGetPlansQuery, useUpdatePlanPriceMutation } from '@/lib/adminApi'
+import {
+  useGetPlansQuery,
+  useUpdatePlanPriceMutation,
+  useGetBidConfigQuery,
+  useUpdateBidConfigMutation,
+  useGetAuctionConfigQuery,
+  useUpdateAuctionConfigMutation,
+} from '@/lib/adminApi'
 import { Loader2, Save, AlertCircle, CheckCircle2 } from 'lucide-react'
+
+const formatDuration = (hours: number | undefined) => {
+  if (hours === undefined) return "—";
+  if (hours === 0) return "0 hours";
+  
+  const d = Math.floor(hours / 24);
+  const h = hours % 24;
+  
+  if (d === 0) return `${h} ${h === 1 ? 'hour' : 'hours'}`;
+  if (h === 0) return `${d} ${d === 1 ? 'day' : 'days'}`;
+  
+  return `${d} ${d === 1 ? 'day' : 'days'} ${h} ${h === 1 ? 'hour' : 'hours'}`;
+};
 
 export default function SystemSettings() {
   const { data: plans, isLoading: plansLoading } = useGetPlansQuery();
-  const [updatePrice, { isLoading: isUpdating }] = useUpdatePlanPriceMutation();
+  const [updatePrice] = useUpdatePlanPriceMutation();
+  
+  // Bid Config
+  const { data: bidConfig, isLoading: bidConfigLoading } = useGetBidConfigQuery();
+  const [updateBidConfig, { isLoading: isBidConfigUpdating }] = useUpdateBidConfigMutation();
+  
+  // Auction Config
+  const { data: auctionConfig, isLoading: auctionConfigLoading } = useGetAuctionConfigQuery();
+  const [updateAuctionConfig, { isLoading: isAuctionConfigUpdating }] = useUpdateAuctionConfigMutation();
+
   const [prices, setPrices] = useState<Record<string, string>>({});
+  const [updatingPlan, setUpdatingPlan] = useState<string | null>(null);
+  const [bidIncrement, setBidIncrement] = useState<string>("");
+  const [auctionDuration, setAuctionDuration] = useState({
+    min: "",
+    max: "",
+  });
   const [status, setStatus] = useState<{ msg: string; ok: boolean } | null>(null);
 
   useEffect(() => {
@@ -20,40 +55,87 @@ export default function SystemSettings() {
     }
   }, [plans]);
 
-  const [form, setForm] = useState({
-    minBidIncrement: "500",
-    minReservePrice: "5000",
-    minAuctionHours: "24",
-    maxAuctionHours: "168",
-  })
+  useEffect(() => {
+    if (bidConfig) {
+      setBidIncrement(bidConfig.min_bid_increment?.toString() || "");
+    }
+  }, [bidConfig]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target
-    setForm(prev => ({ ...prev, [name]: value }))
-  }
+  useEffect(() => {
+    if (auctionConfig) {
+      setAuctionDuration({
+        min: auctionConfig.min_auction_duration_hours?.toString() || "",
+        max: auctionConfig.max_auction_duration_hours?.toString() || "",
+      });
+    }
+  }, [auctionConfig]);
 
   const handlePriceChange = (plan: string, value: string) => {
     setPrices(prev => ({ ...prev, [plan]: value }));
   }
 
   const handleSavePrice = async (plan: string) => {
+    const price = prices[plan]?.trim();
+
+    if (!price || Number.isNaN(Number(price)) || Number(price) < 0) {
+      notify("Please enter a valid plan price.", false);
+      return;
+    }
+
+    setUpdatingPlan(plan);
     try {
-      await updatePrice({ plan, price: prices[plan] }).unwrap();
+      const updatedPlan = await updatePrice({ plan, price }).unwrap();
+      setPrices(prev => ({ ...prev, [updatedPlan.plan]: updatedPlan.price }));
       notify("Price updated successfully!");
-    } catch (err) {
+    } catch {
       notify("Failed to update price.", false);
+    } finally {
+      setUpdatingPlan(null);
+    }
+  }
+
+  const handleSaveBidConfig = async () => {
+    try {
+      const minIncrement = parseInt(bidIncrement, 10);
+      if (isNaN(minIncrement) || minIncrement < 0) {
+        notify("Please enter a valid minimum bid increment.", false);
+        return;
+      }
+      await updateBidConfig({ min_bid_increment: minIncrement }).unwrap();
+      notify("Bid increment updated successfully!");
+    } catch {
+      notify("Failed to update bid increment.", false);
+    }
+  }
+
+  const handleSaveAuctionConfig = async () => {
+    try {
+      const minHours = parseInt(auctionDuration.min, 10);
+      const maxHours = parseInt(auctionDuration.max, 10);
+      
+      if (isNaN(minHours) || isNaN(maxHours) || minHours < 0 || maxHours < 0) {
+        notify("Please enter valid auction duration values.", false);
+        return;
+      }
+
+      if (minHours >= maxHours) {
+        notify("Minimum duration must be less than maximum duration.", false);
+        return;
+      }
+
+      await updateAuctionConfig({
+        min_auction_duration_hours: minHours,
+        max_auction_duration_hours: maxHours,
+      }).unwrap();
+      notify("Auction duration limits updated successfully!");
+    } catch {
+      notify("Failed to update auction duration limits.", false);
     }
   }
 
   const notify = (msg: string, ok = true) => {
     setStatus({ msg, ok });
     setTimeout(() => setStatus(null), 3000);
-  }
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    console.log("Saving global settings:", form)
-    notify("Global settings saved (local simulation)");
   }
 
   return (
@@ -101,7 +183,9 @@ export default function SystemSettings() {
                       <div className="relative">
                         <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 font-medium text-sm">{plan.currency.toUpperCase()}</span>
                         <input
-                          type="text"
+                          type="number"
+                          min="0"
+                          step="0.01"
                           value={prices[plan.plan] || ""}
                           onChange={(e) => handlePriceChange(plan.plan, e.target.value)}
                           className="w-full bg-gray-950 border border-gray-800 rounded-lg pl-14 pr-4 py-3 text-white font-bold focus:outline-none focus:border-emerald-500/50 transition-colors"
@@ -109,11 +193,11 @@ export default function SystemSettings() {
                       </div>
                       <button
                         onClick={() => handleSavePrice(plan.plan)}
-                        disabled={isUpdating}
-                        className="w-full flex items-center justify-center gap-2 bg-gray-800 hover:bg-emerald-600 hover:text-white text-gray-300 font-bold py-2.5 rounded-lg transition-all text-xs uppercase tracking-widest"
+                        disabled={updatingPlan !== null}
+                        className="w-full flex items-center justify-center gap-2 bg-gray-800 hover:bg-emerald-600 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed text-gray-300 font-bold py-2.5 rounded-lg transition-all text-xs uppercase tracking-widest"
                       >
-                        <Save size={14} />
-                        Save {plan.plan} Price
+                        {updatingPlan === plan.plan ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                        {updatingPlan === plan.plan ? "Saving..." : `Save ${plan.plan} Price`}
                       </button>
                     </div>
                   ))}
@@ -122,71 +206,120 @@ export default function SystemSettings() {
             </div>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-10">
-            {/* Bidding Configuration */}
+          <div className="space-y-10">
+            {/* Bidding Configuration - Auction Dynamics */}
             <div className="bg-[#111113] border border-gray-800 rounded-2xl overflow-hidden">
-              <div className="px-6 py-5 border-b border-gray-800">
+              <div className="px-6 py-5 border-b border-gray-800 bg-gray-900/30">
                 <h2 className="text-lg font-bold flex items-center gap-2.5 text-white">
                   <span className="text-emerald-400">⚡</span>
-                  Auction Dynamics
+                  Auction Dynamics - Bid Configuration
                 </h2>
               </div>
 
               <div className="p-6 space-y-6">
-                <SettingRow
-                  label="Minimum Bid Increment (CHF)"
-                  name="minBidIncrement"
-                  value={form.minBidIncrement}
-                  onChange={handleChange}
-                />
-
-                <SettingRow
-                  label="Minimum Reserve Price (CHF)"
-                  name="minReservePrice"
-                  value={form.minReservePrice}
-                  onChange={handleChange}
-                />
+                {bidConfigLoading ? (
+                  <div className="flex justify-center py-10"><Loader2 className="animate-spin text-emerald-500" /></div>
+                ) : (
+                  <>
+                    <div className="space-y-2">
+                      <label className="block text-sm text-gray-400 font-medium">
+                        Minimum Bid Increment (CHF)
+                      </label>
+                      <input
+                        type="number"
+                        value={bidIncrement}
+                        onChange={(e) => setBidIncrement(e.target.value)}
+                        className="
+                          w-full bg-gray-800/70 border border-gray-700 rounded-lg
+                          px-4 py-3 text-gray-100 text-sm font-medium
+                          focus:outline-none focus:border-emerald-600/60 focus:ring-1 focus:ring-emerald-600/30
+                          transition-all duration-150
+                        "
+                        min="0"
+                      />
+                  
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleSaveBidConfig}
+                      disabled={isBidConfigUpdating}
+                      className="w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-3 rounded-lg transition-all text-sm uppercase tracking-widest"
+                    >
+                      <Save size={16} />
+                      {isBidConfigUpdating ? "Saving..." : "Save Bid Configuration"}
+                    </button>
+                  </>
+                )}
               </div>
             </div>
 
             {/* Auction Duration Limits */}
             <div className="bg-[#111113] border border-gray-800 rounded-2xl overflow-hidden">
-              <div className="px-6 py-5 border-b border-gray-800">
+              <div className="px-6 py-5 border-b border-gray-800 bg-gray-900/30">
                 <h2 className="text-lg font-bold flex items-center gap-2.5 text-white">
                   <span className="text-cyan-400">⏱</span>
                   Auction Duration Limits
                 </h2>
               </div>
 
-              <div className="p-6 grid gap-6 sm:grid-cols-2">
-                <SettingRow
-                  label="Minimum Duration (hours)"
-                  name="minAuctionHours"
-                  value={form.minAuctionHours}
-                  onChange={handleChange}
-                />
+              <div className="p-6 space-y-6">
+                {auctionConfigLoading ? (
+                  <div className="flex justify-center py-10"><Loader2 className="animate-spin text-emerald-500" /></div>
+                ) : (
+                  <>
+                    <div className="grid gap-6 sm:grid-cols-2">
+                      <div className="space-y-2">
+                        <label className="block text-sm text-gray-400 font-medium">
+                          Minimum Duration (hours)
+                        </label>
+                        <input
+                          type="number"
+                          value={auctionDuration.min}
+                          onChange={(e) => setAuctionDuration(prev => ({ ...prev, min: e.target.value }))}
+                          className="
+                            w-full bg-gray-800/70 border border-gray-700 rounded-lg
+                            px-4 py-3 text-gray-100 text-sm font-medium
+                            focus:outline-none focus:border-emerald-600/60 focus:ring-1 focus:ring-emerald-600/30
+                            transition-all duration-150
+                          "
+                          min="0"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">Minimum duration :  {formatDuration(auctionConfig?.min_auction_duration_hours)}</p>
+                      </div>
 
-                <SettingRow
-                  label="Maximum Duration (hours)"
-                  name="maxAuctionHours"
-                  value={form.maxAuctionHours}
-                  onChange={handleChange}
-                />
+                      <div className="space-y-2">
+                        <label className="block text-sm text-gray-400 font-medium">
+                          Maximum Duration (hours)
+                        </label>
+                        <input
+                          type="number"
+                          value={auctionDuration.max}
+                          onChange={(e) => setAuctionDuration(prev => ({ ...prev, max: e.target.value }))}
+                          className="
+                            w-full bg-gray-800/70 border border-gray-700 rounded-lg
+                            px-4 py-3 text-gray-100 text-sm font-medium
+                            focus:outline-none focus:border-emerald-600/60 focus:ring-1 focus:ring-emerald-600/30
+                            transition-all duration-150
+                          "
+                          min="0"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">Maximum duration :  {formatDuration(auctionConfig?.max_auction_duration_hours)}</p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleSaveAuctionConfig}
+                      disabled={isAuctionConfigUpdating}
+                      className="w-full flex items-center justify-center gap-2 bg-cyan-600 hover:bg-cyan-700 active:bg-cyan-800 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-3 rounded-lg transition-all text-sm uppercase tracking-widest"
+                    >
+                      <Save size={16} />
+                      {isAuctionConfigUpdating ? "Saving..." : "Save Auction Duration Limits"}
+                    </button>
+                  </>
+                )}
               </div>
             </div>
-
-            {/* Save button */}
-            <div className="pt-4">
-              <button
-                type="submit"
-                className="w-full bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800
-                         text-white font-bold py-4 px-8 rounded-2xl
-                         transition-all duration-150 shadow-xl shadow-emerald-950/20 uppercase tracking-widest text-sm"
-              >
-                Apply System Changes
-              </button>
-            </div>
-          </form>
+          </div>
         </div>
       </div>
     </div>
@@ -196,31 +329,3 @@ export default function SystemSettings() {
 
 // ──────────────────────────────────────────────
 
-type SettingRowProps = {
-  label: string
-  name: string
-  value: string
-  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void
-}
-
-function SettingRow({ label, name, value, onChange }: SettingRowProps) {
-  return (
-    <div className="space-y-2">
-      <label className="block text-sm text-gray-400 font-medium">
-        {label}
-      </label>
-      <input
-        type="text"
-        name={name}
-        value={value}
-        onChange={onChange}
-        className="
-          w-full bg-gray-800/70 border border-gray-700 rounded-lg
-          px-4 py-3 text-gray-100 text-sm font-medium
-          focus:outline-none focus:border-emerald-600/60 focus:ring-1 focus:ring-emerald-600/30
-          transition-all duration-150
-        "
-      />
-    </div>
-  )
-}
