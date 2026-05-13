@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useDispatch } from "react-redux";
+import { showToast } from "@/lib/toastSlice";
 import { 
   CheckCircle2, 
   CreditCard, 
@@ -98,11 +100,13 @@ export default function SubscriptionManagement() {
 
       doc.save(`subscriptions-report-${new Date().getTime()}.pdf`);
     } catch (err) {
-      alert("Failed to export subscriptions.");
+      dispatch(showToast({ message: "Failed to export subscriptions.", type: "error" }));
     } finally {
       setIsExportingPdf(false);
     }
   };
+
+  const dispatch = useDispatch();
 
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100">
@@ -284,16 +288,11 @@ function ManageModal({ userId, onClose, plans }: { userId: number; onClose: () =
   const { data: detail, isLoading } = useGetUserSubscriptionQuery(userId);
   const [changePlan, { isLoading: isChanging }] = useChangeUserPlanMutation();
   const [refund, { isLoading: isRefunding }] = useRefundSubscriptionMutation();
-  const [selectedPlan, setSelectedPlan] = useState("");
-  const [changeResult, setChangeResult] = useState<ChangePlanResponse | null>(null);
-  const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
   const [confirmRefundInvoice, setConfirmRefundInvoice] = useState<string | null>(null);
   const [refundReason, setRefundReason] = useState("");
-
-  const showToast = (msg: string, ok = true) => {
-    setToast({ msg, ok });
-    setTimeout(() => setToast(null), 3000);
-  };
+  const [selectedPlan, setSelectedPlan] = useState("");
+  const [changeResult, setChangeResult] = useState<ChangePlanResponse | null>(null);
+  const dispatch = useDispatch();
 
   // Persistence logic for scheduled changes
   useEffect(() => {
@@ -328,9 +327,12 @@ function ManageModal({ userId, onClose, plans }: { userId: number; onClose: () =
       setChangeResult(res);
       // Immediate save
       localStorage.setItem(`pending_plan_${userId}`, JSON.stringify(res));
-      showToast("Plan changed successfully!");
+      dispatch(showToast({ message: "Plan changed successfully!", type: "success" }));
     } catch (err: any) {
-      showToast(err?.data?.message || "Failed to update plan.", false);
+      dispatch(showToast({ 
+        message: err?.data?.message || "Failed to update plan.", 
+        type: "error" 
+      }));
     }
   };
 
@@ -347,10 +349,13 @@ function ManageModal({ userId, onClose, plans }: { userId: number; onClose: () =
         stripe_invoice_id: confirmRefundInvoice, 
         reason: refundReason 
       }).unwrap();
-      showToast("Refund successfully initiated.");
+      dispatch(showToast({ message: "Refund successfully initiated.", type: "success" }));
       setConfirmRefundInvoice(null);
     } catch (err: any) {
-      showToast(err?.data?.message || "Failed to process refund.", false);
+      dispatch(showToast({ 
+        message: err?.data?.message || "Failed to process refund.", 
+        type: "error" 
+      }));
     }
   };
 
@@ -513,16 +518,6 @@ function ManageModal({ userId, onClose, plans }: { userId: number; onClose: () =
           ) : null}
         </div>
       </div>
-
-      {/* Toast Notification */}
-      {toast && (
-        <div className={`fixed bottom-8 right-8 z-[100] flex items-center gap-3 px-5 py-3 rounded-2xl text-sm font-bold shadow-2xl animate-in slide-in-from-bottom-5 duration-300 ${
-          toast.ok ? "bg-emerald-900 border border-emerald-500 text-emerald-300" : "bg-red-900 border border-red-500 text-red-300"
-        }`}>
-          {toast.ok ? <CheckCircle2 size={18} /> : <AlertCircle size={18} />}
-          {toast.msg}
-        </div>
-      )}
 
       {/* Refund Confirmation Modal */}
       {confirmRefundInvoice && (

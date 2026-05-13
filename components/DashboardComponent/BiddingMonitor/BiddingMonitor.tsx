@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { useDispatch } from "react-redux";
+import { showToast } from "@/lib/toastSlice";
 import { 
   Flag, 
   AlertTriangle, 
@@ -142,6 +144,7 @@ export default function SuspiciousBiddingDetection() {
   const [selectedAuctionId, setSelectedAuctionId] = useState<number | null>(null);
   const [flaggingAuctionId, setFlaggingAuctionId] = useState<number | null>(null);
   const [flagMutation] = useFlagAuctionMutation();
+  const dispatch = useDispatch();
 
   const handleUpdateFlag = async (details: any) => {
     if (!flaggingAuctionId) return;
@@ -149,8 +152,12 @@ export default function SuspiciousBiddingDetection() {
       await flagMutation({ id: flaggingAuctionId, ...details }).unwrap();
       setFlaggingAuctionId(null);
       refetch();
-    } catch (err) {
-      alert("Failed to update flag details.");
+      dispatch(showToast({ message: "Flag details updated successfully!", type: "success" }));
+    } catch (err: any) {
+      dispatch(showToast({ 
+        message: err?.data?.message || "Failed to update flag details.", 
+        type: "error" 
+      }));
     }
   };
 

@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useDispatch } from "react-redux";
+import { showToast } from "@/lib/toastSlice";
 import {
   Search,
   MessageSquare,
@@ -9,7 +11,7 @@ import {
   User,
   AlertCircle,
   Clock,
-  CheckCircle2,
+  ChevronLeft,
   XCircle,
   Settings,
   Mail,
@@ -36,6 +38,8 @@ export default function SupportMessagingCenter() {
   const [showSettings, setShowSettings] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [seenConversations, setSeenConversations] = useState<Set<number>>(new Set());
+  const [showChatMobile, setShowChatMobile] = useState(false);
+  const dispatch = useDispatch();
 
   // RTK Query Hooks
   const { data: conversationsData, isLoading: isConversationsLoading } = useGetConversationsQuery();
@@ -65,9 +69,12 @@ export default function SupportMessagingCenter() {
         support_email: supportEmail,
         support_phone: supportPhone
       }).unwrap();
-      alert("Support contact updated successfully!");
-    } catch (err) {
-      alert("Failed to update support contact.");
+      dispatch(showToast({ message: "Support contact updated successfully!", type: "success" }));
+    } catch (err: any) {
+      dispatch(showToast({ 
+        message: err?.data?.message || "Failed to update support contact.", 
+        type: "error" 
+      }));
     }
   };
 
@@ -81,8 +88,11 @@ export default function SupportMessagingCenter() {
         attachments: [],
       }).unwrap();
       setMessageInput("");
-    } catch (err) {
-      alert("Failed to send message.");
+    } catch (err: any) {
+      dispatch(showToast({ 
+        message: err?.data?.message || "Failed to send message.", 
+        type: "error" 
+      }));
     }
   };
 
@@ -132,7 +142,10 @@ export default function SupportMessagingCenter() {
     } catch (err: any) {
       console.error("Upload/Send Error:", err);
       const validationErrors = err.data?.extra ? JSON.stringify(err.data.extra) : "";
-      alert(`Failed to upload file and send message. ${validationErrors}`);
+      dispatch(showToast({ 
+        message: `Failed to upload file. ${err?.data?.message || ""} ${validationErrors}`, 
+        type: "error" 
+      }));
     } finally {
       setIsUploading(false);
       e.target.value = '';
@@ -148,11 +161,11 @@ export default function SupportMessagingCenter() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-950 text-gray-100">
-      <div className="flex h-screen">
+    <div className="bg-gray-950 text-gray-100 h-[calc(100vh-112px)] overflow-hidden rounded-2xl border border-gray-800 shadow-2xl">
+      <div className="flex h-full">
         {/* Left Sidebar - Ticket List */}
-        <div className="w-full md:w-96 border-r border-gray-800 flex flex-col bg-gray-950">
-          <div className="p-6 border-b border-gray-800 flex justify-between items-center">
+        <div className={`${showChatMobile ? 'hidden' : 'flex'} md:flex w-full md:w-96 border-r border-gray-800 flex-col bg-gray-950`}>
+          <div className="p-6 border-b border-gray-800 flex justify-between items-center bg-gray-950/50">
             <div>
               <h1 className="text-xl font-bold">Support Center</h1>
               <p className="text-gray-400 text-xs mt-1">
@@ -195,6 +208,7 @@ export default function SupportMessagingCenter() {
                       setSelectedConversation(conversation);
                       setShowSettings(false);
                       setSeenConversations(prev => new Set(prev).add(conversation.id));
+                      setShowChatMobile(true);
                     }}
                     className={`w-full text-left p-4 rounded-lg border transition-all relative ${
                       selectedConversation?.id === conversation.id
@@ -267,15 +281,23 @@ export default function SupportMessagingCenter() {
         </div>
 
         {/* Right Panel - Conversation View */}
-        <div className="hidden md:flex flex-1 flex-col bg-[#0d0d0f]">
+        <div className={`${showChatMobile ? 'flex' : 'hidden'} md:flex flex-1 flex-col bg-[#0d0d0f]`}>
           {selectedConversation && !showSettings ? (
             <>
               {/* Header */}
-              <div className="p-5 border-b border-gray-800 flex items-center justify-between bg-gray-950/50">
-                <div>
-                  <h2 className="font-semibold text-white">{selectedConversation.user.name || "Unknown Dealer"}</h2>
-                  <div className="text-xs text-gray-400 mt-0.5">
-                    {selectedConversation.user.email} • Conversation #{selectedConversation.id}
+              <div className="p-5 border-b border-gray-800 flex items-center justify-between bg-gray-950/50 sticky top-0 z-10">
+                <div className="flex items-center gap-3">
+                  <button 
+                    onClick={() => setShowChatMobile(false)}
+                    className="md:hidden p-2 hover:bg-gray-800 rounded-lg text-emerald-500 bg-emerald-500/10"
+                  >
+                    <ChevronLeft size={20} />
+                  </button>
+                  <div>
+                    <h2 className="font-semibold text-white">{selectedConversation.user.name || "Unknown Dealer"}</h2>
+                    <div className="text-xs text-gray-400 mt-0.5">
+                      {selectedConversation.user.email} • Conversation #{selectedConversation.id}
+                    </div>
                   </div>
                 </div>
 

@@ -1,6 +1,8 @@
 "use client"
 
 import { useState } from 'react'
+import { useDispatch } from 'react-redux'
+import { showToast } from '@/lib/toastSlice'
 import {
   Plus,
   UserPlus,
@@ -32,6 +34,7 @@ export default function AdminManagement() {
   const totalPages = admins ? Math.ceil(admins.count / 8) : 1;
   const [createAdmin, { isLoading: isCreating }] = useCreateAdminMutation();
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const dispatch = useDispatch();
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -58,9 +61,12 @@ export default function AdminManagement() {
       await createAdmin(formData).unwrap();
       setShowCreateModal(false);
       setFormData({ email: '', password: '', role: 'admin' });
-      alert("Administrator created successfully!");
-    } catch (err) {
-      alert("Failed to create administrator.");
+      dispatch(showToast({ message: "Administrator created successfully!", type: "success" }));
+    } catch (err: any) {
+      dispatch(showToast({ 
+        message: err?.data?.message || "Failed to create administrator.", 
+        type: "error" 
+      }));
     }
   }
 

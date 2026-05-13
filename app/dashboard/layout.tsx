@@ -11,6 +11,7 @@ import {
   Loader2
 } from 'lucide-react';
 import { useGetMeQuery } from '@/lib/adminApi';
+import ToastContainer from '@/components/ToastContainer';
 
 const sidebarItems = [
   { name: 'Overview', href: '/dashboard', icon: Home },
@@ -539,7 +540,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           
               <span className="topbar-email">{profile?.email}</span>
               <Link href="/dashboard/profile" className="profile-card" onClick={() => setSidebarOpen(false)}>
-                <div className="profile-avatar">Profile</div>
+                <div className="profile-avatar">{userInitial}</div>
               </Link>
             </div>
           </header>
@@ -547,6 +548,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <main className="page-content">
             {children}
           </main>
+          <ToastContainer />
         </div>
       </div>
     </>

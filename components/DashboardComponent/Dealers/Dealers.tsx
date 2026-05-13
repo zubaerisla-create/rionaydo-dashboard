@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { useDispatch } from "react-redux";
+import { showToast } from "@/lib/toastSlice";
 import {
   Search,
   Eye,
@@ -86,12 +88,7 @@ function UserDetailModal({
     useUpgradeToDealerMutation();
   const [deleteUser, { isLoading: deletingUser }] = useDeleteUserMutation();
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
-
-  const notify = (msg: string, ok = true) => {
-    setToast({ msg, ok });
-    setTimeout(() => setToast(null), 3000);
-  };
+  const dispatch = useDispatch();
 
   const handleAction = async (
     action: () => any,
@@ -99,29 +96,18 @@ function UserDetailModal({
   ) => {
     try {
       await action().unwrap();
-
-      notify(successMsg);
-    } catch {
-      notify("Action failed. Please try again.", false);
+      dispatch(showToast({ message: successMsg, type: "success" }));
+    } catch (err: any) {
+      dispatch(showToast({ 
+        message: err?.data?.message || "Action failed. Please try again.", 
+        type: "error" 
+      }));
     }
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
-      <div className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden">
-        {/* Toast */}
-        {toast && (
-          <div
-            className={`absolute top-4 right-4 z-50 flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium shadow-lg ${toast.ok
-                ? "bg-emerald-900 border border-emerald-700 text-emerald-300"
-                : "bg-red-900 border border-red-700 text-red-300"
-              }`}
-          >
-            {toast.ok ? <CheckCircle size={15} /> : <AlertCircle size={15} />}
-            {toast.msg}
-          </div>
-        )}
-
+      <div className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden relative">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-800">
           <h2 className="text-lg font-semibold text-white">User Profile</h2>
@@ -422,6 +408,19 @@ function RowActions({
   const [approve, { isLoading: ap }] = useApproveUserMutation();
   const [suspend, { isLoading: su }] = useSuspendUserMutation();
   const [reactivate, { isLoading: re }] = useReactivateUserMutation();
+  const dispatch = useDispatch();
+
+  const handleInlineAction = async (action: () => any, msg: string) => {
+    try {
+      await action().unwrap();
+      dispatch(showToast({ message: msg, type: "success" }));
+    } catch (err: any) {
+      dispatch(showToast({ 
+        message: err?.data?.message || "Action failed.", 
+        type: "error" 
+      }));
+    }
+  };
 
   return (
     <div className="flex items-center gap-1.5 justify-end">
@@ -434,7 +433,7 @@ function RowActions({
       </button>
       {user.approval_status === "pending" && (
         <button
-          onClick={() => approve(user.id)}
+          onClick={() => handleInlineAction(() => approve(user.id), "User approved!")}
           disabled={ap}
           title="Approve"
           className="p-1.5 hover:bg-emerald-900 rounded-lg transition disabled:opacity-50"
@@ -448,7 +447,7 @@ function RowActions({
       )}
       {user.is_active && user.approval_status !== "pending" && (
         <button
-          onClick={() => suspend(user.id)}
+          onClick={() => handleInlineAction(() => suspend(user.id), "User suspended.")}
           disabled={su}
           title="Suspend"
           className="p-1.5 hover:bg-amber-900 rounded-lg transition disabled:opacity-50"
@@ -462,7 +461,7 @@ function RowActions({
       )}
       {!user.is_active && (
         <button
-          onClick={() => reactivate(user.id)}
+          onClick={() => handleInlineAction(() => reactivate(user.id), "User reactivated!")}
           disabled={re}
           title="Reactivate"
           className="p-1.5 hover:bg-blue-900 rounded-lg transition disabled:opacity-50"

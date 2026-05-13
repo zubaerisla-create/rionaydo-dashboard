@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useDispatch } from "react-redux";
+import { showToast } from "@/lib/toastSlice";
 import { FileText, Search, ChevronLeft, ChevronRight, Loader2, AlertCircle } from "lucide-react";
 import { useGetAuditLogsQuery, useLazyGetAuditLogsQuery } from "@/lib/adminApi";
 import jsPDF from "jspdf";
@@ -28,6 +30,7 @@ export default function AuditLogsPage() {
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [isExportingPdf, setIsExportingPdf] = useState(false);
+  const dispatch = useDispatch();
 
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -90,7 +93,7 @@ export default function AuditLogsPage() {
 
       doc.save(`audit-logs-report-${new Date().getTime()}.pdf`);
     } catch (err) {
-      alert("Failed to export audit logs.");
+      dispatch(showToast({ message: "Failed to export audit logs.", type: "error" }));
     } finally {
       setIsExportingPdf(false);
     }
