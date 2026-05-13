@@ -103,27 +103,40 @@ export default function AnalyticsDashboard() {
 
   const exportToCSV = () => {
     let csvContent = "data:text/csv;charset=utf-8,";
-    if (reportType === "Revenue Report" || reportType === "Monthly Sales") {
-      csvContent += "Month,Revenue (CHF)\n";
-      revenueTrends?.revenue_trends.forEach(t => {
-        csvContent += `"${t.month_label}",${t.revenue}\n`;
-      });
-    } else if (reportType === "Auction Success Rate") {
-      csvContent += "Month,Auction Volume\n";
-      auctionTrends?.auction_volume.forEach(t => {
-        csvContent += `"${t.month_label}",${t.created_count}\n`;
-      });
-    } else {
-      csvContent += "Plan,Subscribers,Percentage\n";
-      planBreakdown?.plans.forEach(p => {
-        csvContent += `"${p.plan_name}",${p.total_subscribers},"${p.percentage}%"\n`;
-      });
+
+    csvContent += "KPI Summary\n";
+    csvContent += "Metric,Value\n";
+    if (stats) {
+      csvContent += `"Total Revenue (CHF)","${stats.total_revenue}"\n`;
+      csvContent += `"Active Dealers","${stats.active_dealers}"\n`;
+      csvContent += `"Total Auctions","${stats.total_auctions}"\n`;
+      csvContent += `"Live Auctions","${stats.live_auctions}"\n`;
+      csvContent += `"Completed Sales","${stats.completed_sales}"\n`;
+      csvContent += `"Average Vehicle Price (CHF)","${stats.avg_vehicle_price}"\n`;
     }
+
+    csvContent += "\nRevenue Trends\n";
+    csvContent += "Month,Revenue (CHF)\n";
+    revenueTrends?.revenue_trends.forEach(t => {
+      csvContent += `"${t.month_label}",${t.revenue}\n`;
+    });
+
+    csvContent += "\nAuction Volume\n";
+    csvContent += "Month,Auction Volume\n";
+    auctionTrends?.auction_volume.forEach(t => {
+      csvContent += `"${t.month_label}",${t.created_count}\n`;
+    });
+
+    csvContent += "\nPlan Breakdown\n";
+    csvContent += "Plan,Subscribers,Percentage\n";
+    planBreakdown?.plans.forEach(p => {
+      csvContent += `"${p.plan_name}",${p.total_subscribers},"${p.percentage}%"\n`;
+    });
     
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `${reportType.replace(/\s+/g, "_").toLowerCase()}_report.csv`);
+    link.setAttribute("download", "analytics_full_report.csv");
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -133,36 +146,68 @@ export default function AnalyticsDashboard() {
     const doc = new jsPDF();
     doc.setFontSize(18);
     doc.setTextColor(40);
-    doc.text(`${reportType}`, 14, 22);
+    doc.text("Analytics Full Report", 14, 22);
     
     doc.setFontSize(10);
     doc.setTextColor(100);
     doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 30);
 
-    let head = [];
-    let body = [];
-
-    if (reportType === "Revenue Report" || reportType === "Monthly Sales") {
-      head = [["Month", "Revenue (CHF)"]];
-      body = revenueTrends?.revenue_trends.map(t => [t.month_label, parseFloat(t.revenue).toLocaleString("de-CH", { minimumFractionDigits: 2 })]) || [];
-    } else if (reportType === "Auction Success Rate") {
-      head = [["Month", "Auction Volume"]];
-      body = auctionTrends?.auction_volume.map(t => [t.month_label, t.created_count.toString()]) || [];
-    } else {
-      head = [["Plan", "Subscribers", "Percentage"]];
-      body = planBreakdown?.plans.map(p => [p.plan_name, p.total_subscribers.toString(), `${p.percentage}%`]) || [];
-    }
-
     autoTable(doc, {
       startY: 40,
-      head: head,
-      body: body,
+      head: [["Metric", "Value"]],
+      body: stats ? [
+        ["Total Revenue (CHF)", stats.total_revenue],
+        ["Active Dealers", stats.active_dealers.toString()],
+        ["Total Auctions", stats.total_auctions.toString()],
+        ["Live Auctions", stats.live_auctions.toString()],
+        ["Completed Sales", stats.completed_sales.toString()],
+        ["Average Vehicle Price (CHF)", stats.avg_vehicle_price],
+      ] : [],
       theme: 'striped',
       headStyles: { fillColor: [16, 185, 129] },
       styles: { fontSize: 10 }
     });
 
-    doc.save(`${reportType.replace(/\s+/g, "_").toLowerCase()}_report.pdf`);
+    doc.addPage();
+    doc.setFontSize(16);
+    doc.text("Revenue Trends", 14, 22);
+    autoTable(doc, {
+      startY: 32,
+      head: [["Month", "Revenue (CHF)"]],
+      body: revenueTrends?.revenue_trends.map(t => [
+        t.month_label,
+        parseFloat(t.revenue).toLocaleString("de-CH", { minimumFractionDigits: 2 })
+      ]) || [],
+      theme: 'striped',
+      headStyles: { fillColor: [16, 185, 129] },
+      styles: { fontSize: 10 }
+    });
+
+    doc.addPage();
+    doc.setFontSize(16);
+    doc.text("Auction Volume", 14, 22);
+    autoTable(doc, {
+      startY: 32,
+      head: [["Month", "Auction Volume"]],
+      body: auctionTrends?.auction_volume.map(t => [t.month_label, t.created_count.toString()]) || [],
+      theme: 'striped',
+      headStyles: { fillColor: [16, 185, 129] },
+      styles: { fontSize: 10 }
+    });
+
+    doc.addPage();
+    doc.setFontSize(16);
+    doc.text("Plan Breakdown", 14, 22);
+    autoTable(doc, {
+      startY: 32,
+      head: [["Plan", "Subscribers", "Percentage"]],
+      body: planBreakdown?.plans.map(p => [p.plan_name, p.total_subscribers.toString(), `${p.percentage}%`]) || [],
+      theme: 'striped',
+      headStyles: { fillColor: [16, 185, 129] },
+      styles: { fontSize: 10 }
+    });
+
+    doc.save("analytics_full_report.pdf");
   };
 
   return (

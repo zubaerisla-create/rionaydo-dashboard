@@ -477,9 +477,9 @@ export const adminApi = createApi({
     }),
 
     // ── Compliance ────────────────────────────────────────────────────────
-    getAuditLogs: builder.query<PaginatedAuditLogs, { page?: number }>({
-      query: ({ page = 1 } = {}) => ({
-        url: `/api/admin/compliance/audit-logs/?page=${page}&page_size=8`,
+    getAuditLogs: builder.query<PaginatedAuditLogs, { page?: number; pageSize?: number }>({
+      query: ({ page = 1, pageSize = 8 } = {}) => ({
+        url: `/api/admin/compliance/audit-logs/?page=${page}&page_size=${pageSize}`,
         method: 'GET',
       }),
     }),
@@ -519,9 +519,9 @@ export const adminApi = createApi({
     }),
 
     // ── Subscriptions ─────────────────────────────────────────────────────
-    getSubscriptions: builder.query<PaginatedSubscriptions, { page?: number }>({
-      query: ({ page = 1 } = {}) => ({
-        url: `/api/admin/subscriptions/?page=${page}&page_size=8`,
+    getSubscriptions: builder.query<PaginatedSubscriptions, { page?: number; pageSize?: number }>({
+      query: ({ page = 1, pageSize = 8 } = {}) => ({
+        url: `/api/admin/subscriptions/?page=${page}&page_size=${pageSize}`,
         method: 'GET',
       }),
     }),
@@ -667,11 +667,13 @@ export const {
   useGetRevenueTrendsQuery,
   useGetPlanBreakdownQuery,
   useGetAuditLogsQuery,
+  useLazyGetAuditLogsQuery,
   useGetMeQuery,
   useUpdateMeMutation,
   useGetSupportContactQuery,
   useUpdateSupportContactMutation,
   useGetSubscriptionsQuery,
+  useLazyGetSubscriptionsQuery,
   useGetUserSubscriptionQuery,
   useChangeUserPlanMutation,
   useGetUserInvoicesQuery,
@@ -686,7 +688,5 @@ export const {
   useSendMessageMutation,
   useLazyGetPresignedUrlQuery,
 } = adminApi;
-
-
 
 

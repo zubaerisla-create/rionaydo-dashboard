@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { 
   useGetSubscriptionsQuery, 
+  useLazyGetSubscriptionsQuery,
   useGetPlansQuery,
   useChangeUserPlanMutation,
   useRefundSubscriptionMutation,
@@ -37,46 +38,67 @@ function fmtDate(date: string) {
 export default function SubscriptionManagement() {
   const [page, setPage] = useState(1);
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
   
   const { data, isLoading, isError } = useGetSubscriptionsQuery({ page });
+  const [getSubscriptions] = useLazyGetSubscriptionsQuery();
   const { data: plans } = useGetPlansQuery();
 
   const totalPages = data ? Math.ceil(data.count / 8) : 1;
 
-  const handleExportPDF = () => {
-    if (!data?.results) return;
+  const handleExportPDF = async () => {
+    if (isExportingPdf) return;
 
-    const doc = new jsPDF();
-    
-    // Header
-    doc.setFontSize(18);
-    doc.setTextColor(40);
-    doc.text("Subscription Report", 14, 22);
-    
-    doc.setFontSize(10);
-    doc.setTextColor(100);
-    doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 30);
-    doc.text(`Total Subscriptions: ${data.count}`, 14, 35);
+    setIsExportingPdf(true);
+    try {
+      const pageSize = 100;
+      const firstPage = await getSubscriptions({ page: 1, pageSize }).unwrap();
+      const totalExportPages = Math.max(1, Math.ceil(firstPage.count / pageSize));
+      const allSubscriptions = [...firstPage.results];
 
-    // Table
-    const tableData = data.results.map((sub) => [
-      sub.user_email,
-      sub.plan.toUpperCase(),
-      sub.status.toUpperCase(),
-      fmtDate(sub.current_period_end),
-      fmtDate(sub.created_at)
-    ]);
+      for (let exportPage = 2; exportPage <= totalExportPages; exportPage += 1) {
+        const pageData = await getSubscriptions({ page: exportPage, pageSize }).unwrap();
+        allSubscriptions.push(...pageData.results);
+      }
 
-    autoTable(doc, {
-      startY: 45,
-      head: [["Dealer Email", "Plan", "Status", "Renewal Date", "Created At"]],
-      body: tableData,
-      theme: 'striped',
-      headStyles: { fillColor: [16, 185, 129] }, // Emerald-500
-      styles: { fontSize: 9 }
-    });
+      if (!allSubscriptions.length) return;
 
-    doc.save(`subscriptions-report-${new Date().getTime()}.pdf`);
+      const doc = new jsPDF();
+      
+      // Header
+      doc.setFontSize(18);
+      doc.setTextColor(40);
+      doc.text("Subscription Report", 14, 22);
+      
+      doc.setFontSize(10);
+      doc.setTextColor(100);
+      doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 30);
+      doc.text(`Total Subscriptions: ${firstPage.count}`, 14, 35);
+
+      // Table
+      const tableData = allSubscriptions.map((sub) => [
+        sub.user_email,
+        sub.plan.toUpperCase(),
+        sub.status.toUpperCase(),
+        fmtDate(sub.current_period_end),
+        fmtDate(sub.created_at)
+      ]);
+
+      autoTable(doc, {
+        startY: 45,
+        head: [["Dealer Email", "Plan", "Status", "Renewal Date", "Created At"]],
+        body: tableData,
+        theme: 'striped',
+        headStyles: { fillColor: [16, 185, 129] }, // Emerald-500
+        styles: { fontSize: 9 }
+      });
+
+      doc.save(`subscriptions-report-${new Date().getTime()}.pdf`);
+    } catch (err) {
+      alert("Failed to export subscriptions.");
+    } finally {
+      setIsExportingPdf(false);
+    }
   };
 
   return (
@@ -93,10 +115,11 @@ export default function SubscriptionManagement() {
             </div>
             <button 
               onClick={handleExportPDF}
-              className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm transition font-bold shadow-lg shadow-emerald-900/20"
+              disabled={isExportingPdf}
+              className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 disabled:cursor-not-allowed text-white rounded-lg text-sm transition font-bold shadow-lg shadow-emerald-900/20"
             >
-              <FileText size={16} />
-              Export PDF
+              {isExportingPdf ? <Loader2 size={16} className="animate-spin" /> : <FileText size={16} />}
+              {isExportingPdf ? "Exporting..." : "Export PDF"}
             </button>
           </div>
 

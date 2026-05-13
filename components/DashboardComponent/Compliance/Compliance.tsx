@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { FileText, Search, ChevronLeft, ChevronRight, Loader2, AlertCircle } from "lucide-react";
-import { useGetAuditLogsQuery } from "@/lib/adminApi";
+import { useGetAuditLogsQuery, useLazyGetAuditLogsQuery } from "@/lib/adminApi";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
@@ -25,44 +25,65 @@ function getActionColor(action: string) {
 
 export default function AuditLogsPage() {
   const [page, setPage] = useState(1);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
   const { data, isLoading, isError } = useGetAuditLogsQuery({ page });
+  const [getAuditLogs] = useLazyGetAuditLogsQuery();
 
   const totalPages = data ? Math.ceil(data.count / 8) : 1;
 
-  const handleExportPDF = () => {
-    if (!data?.results) return;
+  const handleExportPDF = async () => {
+    if (isExportingPdf) return;
 
-    const doc = new jsPDF();
-    
-    // Header
-    doc.setFontSize(18);
-    doc.setTextColor(40);
-    doc.text("Compliance & Audit Report", 14, 22);
-    
-    doc.setFontSize(10);
-    doc.setTextColor(100);
-    doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 30);
-    doc.text(`Total Log Entries: ${data.count}`, 14, 35);
+    setIsExportingPdf(true);
+    try {
+      const pageSize = 100;
+      const firstPage = await getAuditLogs({ page: 1, pageSize }).unwrap();
+      const totalExportPages = Math.max(1, Math.ceil(firstPage.count / pageSize));
+      const allLogs = [...firstPage.results];
 
-    // Table
-    const tableData = data.results.map((log) => [
-      fmt(log.created_at),
-      log.actor_email,
-      log.action.toUpperCase().replace(/_/g, ' '),
-      log.description,
-      log.ip_address
-    ]);
+      for (let exportPage = 2; exportPage <= totalExportPages; exportPage += 1) {
+        const pageData = await getAuditLogs({ page: exportPage, pageSize }).unwrap();
+        allLogs.push(...pageData.results);
+      }
 
-    autoTable(doc, {
-      startY: 45,
-      head: [["Timestamp", "Admin", "Action", "Details", "IP Address"]],
-      body: tableData,
-      theme: 'striped',
-      headStyles: { fillColor: [16, 185, 129] }, // Emerald-500
-      styles: { fontSize: 8 }
-    });
+      if (!allLogs.length) return;
 
-    doc.save(`audit-logs-report-${new Date().getTime()}.pdf`);
+      const doc = new jsPDF();
+      
+      // Header
+      doc.setFontSize(18);
+      doc.setTextColor(40);
+      doc.text("Compliance & Audit Report", 14, 22);
+      
+      doc.setFontSize(10);
+      doc.setTextColor(100);
+      doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 30);
+      doc.text(`Total Log Entries: ${firstPage.count}`, 14, 35);
+
+      // Table
+      const tableData = allLogs.map((log) => [
+        fmt(log.created_at),
+        log.actor_email,
+        log.action.toUpperCase().replace(/_/g, ' '),
+        log.description,
+        log.ip_address
+      ]);
+
+      autoTable(doc, {
+        startY: 45,
+        head: [["Timestamp", "Admin", "Action", "Details", "IP Address"]],
+        body: tableData,
+        theme: 'striped',
+        headStyles: { fillColor: [16, 185, 129] }, // Emerald-500
+        styles: { fontSize: 8 }
+      });
+
+      doc.save(`audit-logs-report-${new Date().getTime()}.pdf`);
+    } catch (err) {
+      alert("Failed to export audit logs.");
+    } finally {
+      setIsExportingPdf(false);
+    }
   };
 
   return (
@@ -85,10 +106,11 @@ export default function AuditLogsPage() {
 
             <button 
               onClick={handleExportPDF}
-              className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm transition font-bold shadow-lg shadow-emerald-900/20"
+              disabled={isExportingPdf}
+              className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 disabled:cursor-not-allowed text-white rounded-lg text-sm transition font-bold shadow-lg shadow-emerald-900/20"
             >
-              <FileText size={16} />
-              Export PDF
+              {isExportingPdf ? <Loader2 size={16} className="animate-spin" /> : <FileText size={16} />}
+              {isExportingPdf ? "Exporting..." : "Export PDF"}
             </button>
           </div>
         </div>
