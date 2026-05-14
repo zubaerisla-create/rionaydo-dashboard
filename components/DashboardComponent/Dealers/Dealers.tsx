@@ -333,16 +333,16 @@ function UserDetailModal({
           <div className="px-6 py-4 border-t border-gray-800 flex flex-wrap gap-2">
             {user.approval_status === "pending" && (
               <ActionBtn
-                label="Approve"
+                label="Approve User"
                 icon={<CheckCircle size={14} />}
                 colorClass="bg-emerald-700 hover:bg-emerald-600 text-white"
                 loading={approvingUser}
                 onClick={() => handleAction(() => approve(user.id), "User approved!")}
               />
             )}
-            {user.is_active && (
+            {user.approval_status === "approved" && user.is_active && (
               <ActionBtn
-                label="Suspend"
+                label="Suspend User"
                 icon={<XCircle size={14} />}
                 colorClass="bg-amber-900 hover:bg-amber-800 text-amber-300 border border-amber-700"
                 loading={suspendingUser}
@@ -351,11 +351,11 @@ function UserDetailModal({
             )}
             {!user.is_active && (
               <ActionBtn
-                label="Suspend"
+                label="Reactivate User"
                 icon={<RefreshCw size={14} />}
                 colorClass="bg-blue-900 hover:bg-blue-800 text-blue-300 border border-blue-700"
-                loading={suspendingUser}
-                onClick={() => handleAction(() => suspend(user.id), "User reactivated!")}
+                loading={reactivatingUser}
+                onClick={() => handleAction(() => reactivate(user.id), "User reactivated!")}
               />
             )}
        
