@@ -45,9 +45,12 @@ export type UserDetail = {
     phone: string;
     address: string;
     website: string;
-    photo_url: string;
-    id_document_url: string;
-    full_name: string;
+    uid: string;
+    company: string;
+    license_url: string;
+    photo_url?: string;
+    id_document_url?: string;
+    full_name?: string;
   };
   stats: {
     auctions_created: number;

@@ -24,6 +24,8 @@ import {
   X,
   Loader2,
   AlertCircle,
+  Shield,
+  Lock,
 } from "lucide-react";
 import {
   useGetUserListQuery,
@@ -149,7 +151,7 @@ function UserDetailModal({
                 )}
                 <div className="flex-1 min-w-0">
                   <h3 className="text-xl font-bold text-white truncate">
-                    {user.profile.full_name || "—"}
+                    {user.profile.full_name || user.profile.company || "—"}
                   </h3>
                   <p className="text-sm text-gray-400 mt-0.5">{user.email}</p>
                   <div className="flex flex-wrap gap-2 mt-2">
@@ -175,71 +177,130 @@ function UserDetailModal({
                 </div>
               </div>
 
-              {/* Details Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <InfoRow
-                  icon={<Phone size={14} />}
-                  label="Phone"
-                  value={user.profile.phone}
-                />
-                <InfoRow
-                  icon={<MapPin size={14} />}
-                  label="Address"
-                  value={user.profile.address}
-                />
-                <InfoRow
-                  icon={<Globe size={14} />}
-                  label="Website"
-                  value={user.profile.website || "—"}
-                />
-                <InfoRow
-                  icon={<User size={14} />}
-                  label="User Type"
-                  value={
-                    <span className="capitalize">{user.user_type}</span>
-                  }
-                />
-                <InfoRow
-                  icon={<CheckCircle size={14} />}
-                  label="Email Verified"
-                  value={user.is_email_verified ? "Yes" : "No"}
-                />
-                <InfoRow
-                  icon={<Activity size={14} />}
-                  label="2FA Enabled"
-                  value={user.is_two_factor_enabled ? "Yes" : "No"}
-                />
-                <InfoRow
-                  icon={<FileText size={14} />}
-                  label="Joined"
-                  value={fmt(user.created_at)}
-                />
-                {user.profile.id_document_url && (
-                  <div className="flex items-start gap-2.5 bg-gray-800/50 rounded-lg p-3">
-                    <FileText size={14} className="text-gray-400 mt-0.5 flex-shrink-0" />
-                    <div>
-                      <div className="text-xs text-gray-500 mb-0.5">ID Document</div>
-                      <a
-                        href={user.profile.id_document_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-sm text-blue-400 hover:underline"
-                      >
-                        View Document
-                      </a>
+              {/* Details Sections */}
+              <div className="space-y-6">
+                {/* Account & Security */}
+                <div>
+                  <h4 className="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em] mb-3 px-1">Account & Security</h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <InfoRow
+                      icon={<User size={14} />}
+                      label="User Type"
+                      value={<span className="capitalize font-medium">{user.user_type}</span>}
+                    />
+                    <InfoRow
+                      icon={<Shield size={14} />}
+                      label="UID"
+                      value={user.profile.uid || "—"}
+                    />
+                    <InfoRow
+                      icon={<CheckCircle size={14} />}
+                      label="Email Status"
+                      value={
+                        <span className={user.is_email_verified ? "text-emerald-400" : "text-amber-400"}>
+                          {user.is_email_verified ? "Verified" : "Unverified"}
+                        </span>
+                      }
+                    />
+                    <InfoRow
+                      icon={<Lock size={14} />}
+                      label="Two-Factor Auth"
+                      value={user.is_two_factor_enabled ? <span className="text-emerald-400">Enabled</span> : <span className="text-gray-500">Disabled</span>}
+                    />
+                  </div>
+                </div>
+
+                {/* Contact Information */}
+                <div>
+                  <h4 className="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em] mb-3 px-1">Contact Information</h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <InfoRow
+                      icon={<Phone size={14} />}
+                      label="Phone Number"
+                      value={user.profile.phone || "—"}
+                    />
+                    <InfoRow
+                      icon={<Globe size={14} />}
+                      label="Website"
+                      value={user.profile.website ? (
+                        <a href={user.profile.website} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">
+                          {user.profile.website}
+                        </a>
+                      ) : "—"}
+                    />
+                    <div className="sm:col-span-2">
+                      <InfoRow
+                        icon={<MapPin size={14} />}
+                        label="Primary Address"
+                        value={user.profile.address || "—"}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Company & Documents */}
+                {(user.profile.company || user.profile.license_url || user.profile.id_document_url) && (
+                  <div>
+                    <h4 className="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em] mb-3 px-1">Company & Verification</h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {user.profile.company && (
+                        <div className="sm:col-span-2">
+                          <InfoRow
+                            icon={<Activity size={14} />}
+                            label="Registered Company"
+                            value={user.profile.company}
+                          />
+                        </div>
+                      )}
+                      {user.profile.license_url && (
+                        <a
+                          href={user.profile.license_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-3 bg-gray-800/40 hover:bg-gray-800/60 border border-gray-700/50 rounded-xl p-3 transition group"
+                        >
+                          <div className="p-2 bg-blue-500/10 text-blue-400 rounded-lg group-hover:scale-110 transition-transform">
+                            <FileText size={18} />
+                          </div>
+                          <div>
+                            <div className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Business License</div>
+                            <div className="text-sm text-blue-400 font-medium">View Document</div>
+                          </div>
+                        </a>
+                      )}
+                      {user.profile.id_document_url && (
+                        <a
+                          href={user.profile.id_document_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-3 bg-gray-800/40 hover:bg-gray-800/60 border border-gray-700/50 rounded-xl p-3 transition group"
+                        >
+                          <div className="p-2 bg-purple-500/10 text-purple-400 rounded-lg group-hover:scale-110 transition-transform">
+                            <FileText size={18} />
+                          </div>
+                          <div>
+                            <div className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">ID Verification</div>
+                            <div className="text-sm text-purple-400 font-medium">View Document</div>
+                          </div>
+                        </a>
+                      )}
                     </div>
                   </div>
                 )}
-              </div>
 
-              {/* Stats */}
-              <div>
-                <h4 className="text-sm font-semibold text-gray-300 mb-3">Activity Stats</h4>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  <StatMini label="Total Bids" value={user.stats.total_bids} icon={<Gavel size={16} />} color="text-blue-400" />
-                  <StatMini label="Auctions Won" value={user.stats.auctions_won} icon={<TrendingUp size={16} />} color="text-emerald-400" />
-                  <StatMini label="Created" value={user.stats.auctions_created} icon={<Activity size={16} />} color="text-purple-400" />
-                  <StatMini label="Active" value={user.stats.active_auctions} icon={<RefreshCw size={16} />} color="text-amber-400" />
+                {/* Statistics */}
+                <div>
+                  <h4 className="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em] mb-3 px-1">Activity Metrics</h4>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <StatMini label="Total Bids" value={user.stats.total_bids} icon={<Gavel size={16} />} color="text-blue-400" />
+                    <StatMini label="Wins" value={user.stats.auctions_won} icon={<TrendingUp size={16} />} color="text-emerald-400" />
+                    <StatMini label="Created" value={user.stats.auctions_created} icon={<Activity size={16} />} color="text-purple-400" />
+                    <StatMini label="Active" value={user.stats.active_auctions} icon={<RefreshCw size={16} />} color="text-amber-400" />
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-gray-800/50">
+                   <p className="text-[10px] text-gray-600 font-medium">Member since {fmt(user.created_at)}</p>
                 </div>
               </div>
 
