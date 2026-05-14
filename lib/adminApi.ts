@@ -404,6 +404,8 @@ export const adminApi = createApi({
       // 
     }),
 
+  
+
     upgradeToDealer: builder.mutation<any, number>({
       query: (userId) => ({
         url: `/api/admin/user/${userId}/upgrade-to-dealer/dev/`,

@@ -155,24 +155,13 @@ function UserDetailModal({
                   </h3>
                   <p className="text-sm text-gray-400 mt-0.5">{user.email}</p>
                   <div className="flex flex-wrap gap-2 mt-2">
-                    <span
-                      className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium border capitalize ${roleColor(user.role)}`}
-                    >
-                      {user.role}
-                    </span>
+               
                     <span
                       className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium border capitalize ${statusColor(user.approval_status)}`}
                     >
                       {user.approval_status}
                     </span>
-                    <span
-                      className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium border capitalize ${user.is_active
-                          ? "bg-emerald-950 text-emerald-400 border-emerald-800"
-                          : "bg-gray-800 text-gray-400 border-gray-700"
-                        }`}
-                    >
-                      {user.is_active ? "Active" : "Inactive"}
-                    </span>
+              
                   </div>
                 </div>
               </div>
@@ -362,22 +351,14 @@ function UserDetailModal({
             )}
             {!user.is_active && (
               <ActionBtn
-                label="Reactivate"
+                label="Suspend"
                 icon={<RefreshCw size={14} />}
                 colorClass="bg-blue-900 hover:bg-blue-800 text-blue-300 border border-blue-700"
-                loading={reactivatingUser}
-                onClick={() => handleAction(() => reactivate(user.id), "User reactivated!")}
+                loading={suspendingUser}
+                onClick={() => handleAction(() => suspend(user.id), "User reactivated!")}
               />
             )}
-            {user.role !== "dealer" && (
-              <ActionBtn
-                label="Upgrade to Dealer"
-                icon={<ArrowUpCircle size={14} />}
-                colorClass="bg-purple-900 hover:bg-purple-800 text-purple-300 border border-purple-700"
-                loading={upgradingUser}
-                onClick={() => handleAction(() => upgradeToDealer(user.id), "User upgraded to dealer!")}
-              />
-            )}
+       
             <ActionBtn
               label="Delete User"
               icon={<Trash2 size={14} />}
@@ -647,9 +628,9 @@ export default function UserManagement() {
               <thead className="bg-gray-800 sticky top-0 z-20 shadow-md">
                 <tr>
                   <th className="px-6 py-4 font-medium text-gray-300">Email</th>
-                  <th className="px-6 py-4 font-medium text-gray-300">Role</th>
+               
                   <th className="px-6 py-4 font-medium text-gray-300">Type</th>
-                  <th className="px-6 py-4 font-medium text-gray-300">Status</th>
+             
                   <th className="px-6 py-4 font-medium text-gray-300">Approval</th>
                   <th className="px-6 py-4 font-medium text-gray-300 text-center">Bids</th>
                   <th className="px-6 py-4 font-medium text-gray-300">Joined</th>
@@ -691,29 +672,11 @@ export default function UserManagement() {
                       </div>
                       <div className="text-xs text-gray-500">ID #{user.id}</div>
                     </td>
-                    <td className="px-6 py-4">
-                      <span
-                        className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium border capitalize ${roleColor(user.role)}`}
-                      >
-                        {user.role}
-                      </span>
-                    </td>
+                  
                     <td className="px-6 py-4 text-gray-400 capitalize">
                       {user.user_type}
                     </td>
-                    <td className="px-6 py-4">
-                      <span
-                        className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border ${user.is_active
-                            ? "bg-emerald-950 text-emerald-400 border-emerald-800"
-                            : "bg-gray-800 text-gray-400 border-gray-700"
-                          }`}
-                      >
-                        <span
-                          className={`w-1.5 h-1.5 rounded-full ${user.is_active ? "bg-emerald-400" : "bg-gray-500"}`}
-                        />
-                        {user.is_active ? "Active" : "Inactive"}
-                      </span>
-                    </td>
+                 
                     <td className="px-6 py-4">
                       <span
                         className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium border capitalize ${statusColor(user.approval_status)}`}
